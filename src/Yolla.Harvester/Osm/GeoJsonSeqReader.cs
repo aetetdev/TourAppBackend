@@ -110,8 +110,15 @@ public sealed class GeoJsonSeqReader
     }
 
     /// <summary>
-    /// osmium'un "--add-unique-id=type_id" ile ürettiği kimliği çözer: n123, w456, r789.
+    /// osmium'un "--add-unique-id=type_id" ile ürettiği kimliği çözer: n123, w456, r789, a1000.
     /// </summary>
+    /// <remarks>
+    /// Alan geometrileri (kale, milli park, müze binası) "a" ön ekiyle gelir ve kimlik
+    /// osmium'un alan numaralandırmasıdır: yol kaynaklı alanlarda <c>way_id * 2</c>,
+    /// ilişki kaynaklı alanlarda <c>relation_id * 2 + 1</c>. Kaynak nesneye geri çevrilmesi
+    /// şart, çünkü kayıtların tekilliği (osm_type, osm_id) ikilisine dayanıyor: aynı kale
+    /// hem alan hem ilişki olarak sayılırsa veritabanında iki kayıt oluşurdu.
+    /// </remarks>
     internal static bool TryParseOsmId(string? value, out OsmElementType elementType, out long osmId)
     {
         elementType = OsmElementType.Node;
@@ -122,21 +129,40 @@ public sealed class GeoJsonSeqReader
             return false;
         }
 
-        elementType = value[0] switch
-        {
-            'n' or 'N' => OsmElementType.Node,
-            'w' or 'W' => OsmElementType.Way,
-            'r' or 'R' => OsmElementType.Relation,
-            _ => (OsmElementType)(-1)
-        };
+        var prefix = char.ToLowerInvariant(value[0]);
 
-        if ((int)elementType < 0)
+        if (prefix is not ('n' or 'w' or 'r' or 'a'))
         {
             return false;
         }
 
-        return long.TryParse(value.AsSpan(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out osmId)
-               && osmId > 0;
+        if (!long.TryParse(value.AsSpan(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out var rawId)
+            || rawId <= 0)
+        {
+            return false;
+        }
+
+        if (prefix is 'a')
+        {
+            // Tek numaralı alanlar ilişkiden, çift numaralılar yoldan üretilir
+            var fromRelation = (rawId & 1) == 1;
+
+            elementType = fromRelation ? OsmElementType.Relation : OsmElementType.Way;
+            osmId = fromRelation ? (rawId - 1) / 2 : rawId / 2;
+
+            return osmId > 0;
+        }
+
+        elementType = prefix switch
+        {
+            'n' => OsmElementType.Node,
+            'w' => OsmElementType.Way,
+            _ => OsmElementType.Relation
+        };
+
+        osmId = rawId;
+
+        return true;
     }
 
     private static Dictionary<string, string> ParseTags(JsonElement root)

@@ -17,6 +17,9 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
 {
     private const int BatchSize = 20_000;
 
+    // Her kayıt 81 il poligonuyla kesiştiriliyor; varsayılan 30 saniye yetmiyor
+    private const int CommandTimeoutSeconds = 900;
+
     public async Task<PlaceImportResult> ImportAsync(
         IEnumerable<PlaceImportRow> rows,
         string countryIso2,
@@ -211,7 +214,11 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
             FROM upserted;
             """;
 
-        await using var command = new NpgsqlCommand(sql, connection);
+        await using var command = new NpgsqlCommand(sql, connection)
+        {
+            CommandTimeout = CommandTimeoutSeconds
+        };
+
         command.Parameters.AddWithValue("iso2", countryIso2.ToUpperInvariant());
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);

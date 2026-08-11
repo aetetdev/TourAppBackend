@@ -162,6 +162,37 @@ public class GeoJsonSeqReaderTests : IDisposable
     }
 
     [Theory]
+    // Çift numaralı alanlar yoldan üretilir: way_id * 2
+    [InlineData("a912", OsmElementType.Way, 456L)]
+    [InlineData("a2", OsmElementType.Way, 1L)]
+    // Tek numaralı alanlar ilişkiden üretilir: relation_id * 2 + 1
+    [InlineData("a1579", OsmElementType.Relation, 789L)]
+    [InlineData("a3", OsmElementType.Relation, 1L)]
+    public void Alan_kimligi_kaynak_nesneye_cevrilir(string value, OsmElementType expectedType, long expectedId)
+    {
+        // osmium alan geometrilerine "a" ön eki verir; kaynak yol/ilişkiye çevrilmezse
+        // aynı yer hem alan hem ilişki olarak iki kez kaydedilir
+        GeoJsonSeqReader.TryParseOsmId(value, out var type, out var id).ShouldBeTrue();
+
+        type.ShouldBe(expectedType);
+        id.ShouldBe(expectedId);
+    }
+
+    [Fact]
+    public void Alan_geometrili_kayit_okunur()
+    {
+        var path = WriteLines(
+            """{"type":"Feature","id":"a912","properties":{"historic":"castle","name":"Rumeli Hisarı"},"geometry":{"type":"MultiPolygon","coordinates":[[[[0,0],[0,2],[2,2],[2,0],[0,0]]]]}}""");
+
+        var feature = new GeoJsonSeqReader().Read(path).Single();
+
+        feature.ElementType.ShouldBe(OsmElementType.Way);
+        feature.OsmId.ShouldBe(456);
+        feature.GetTag("name").ShouldBe("Rumeli Hisarı");
+        feature.Area.ShouldNotBeNull();
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("x123")]
     [InlineData("n")]

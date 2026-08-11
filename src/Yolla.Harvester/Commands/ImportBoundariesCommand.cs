@@ -32,7 +32,7 @@ public static class ImportBoundariesCommand
         // --- İller ---
 
         Console.WriteLine($"İl sınırları okunuyor: {provincesPath}");
-        var provinces = ReadBoundaries(provincesPath, adminLevel: 4, country);
+        var provinces = ReadBoundaries(provincesPath, adminLevel: 4, country, uniqueSlugs: true);
         Console.WriteLine($"  {provinces.Count} il sınırı okundu.");
 
         var cityResult = await importer.ImportCitiesAsync(provinces, country, cancellationToken);
@@ -46,8 +46,10 @@ public static class ImportBoundariesCommand
             return 0;
         }
 
+        // İlçe slug'ları benzersiz olmak zorunda değil: adres her zaman il ile birlikte
+        // kuruluyor (/tekirdag/saray, /van/saray), bu yüzden sıra numarası eklenmiyor.
         Console.WriteLine($"İlçe sınırları okunuyor: {districtsPath}");
-        var districts = ReadBoundaries(districtsPath, adminLevel: 6, country);
+        var districts = ReadBoundaries(districtsPath, adminLevel: 6, country, uniqueSlugs: false);
         Console.WriteLine($"  {districts.Count} ilçe sınırı okundu.");
 
         var districtResult = await importer.ImportDistrictsAsync(districts, country, cancellationToken);
@@ -56,7 +58,11 @@ public static class ImportBoundariesCommand
         return 0;
     }
 
-    private static List<BoundaryImportRow> ReadBoundaries(string path, int adminLevel, string country)
+    private static List<BoundaryImportRow> ReadBoundaries(
+        string path,
+        int adminLevel,
+        string country,
+        bool uniqueSlugs)
     {
         var reader = new GeoJsonSeqReader();
         var rows = new List<BoundaryImportRow>();
@@ -72,7 +78,40 @@ public static class ImportBoundariesCommand
             }
         }
 
-        return rows;
+        return uniqueSlugs ? EnsureUniqueSlugs(rows) : rows;
+    }
+
+    /// <summary>
+    /// Aynı slug'ı taşıyan kayıtlara sıra numarası ekler.
+    /// </summary>
+    /// <remarks>
+    /// Şehir slug'ı veritabanında benzersiz olmak zorunda (web adreslerinde kullanılıyor).
+    /// Tek bir çakışma tüm içe aktarımı düşürmemeli; ikinci kayıt "izmir-2" olur.
+    /// </remarks>
+    private static List<BoundaryImportRow> EnsureUniqueSlugs(List<BoundaryImportRow> rows)
+    {
+        var seen = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<BoundaryImportRow>(rows.Count);
+
+        foreach (var row in rows)
+        {
+            if (!seen.TryGetValue(row.Slug, out var count))
+            {
+                seen[row.Slug] = 1;
+                result.Add(row);
+                continue;
+            }
+
+            count++;
+            seen[row.Slug] = count;
+
+            Console.WriteLine($"  UYARI: '{row.Slug}' slug'ı tekrar etti ({row.Name}), "
+                              + $"'{row.Slug}-{count}' olarak kaydediliyor.");
+
+            result.Add(row with { Slug = $"{row.Slug}-{count}" });
+        }
+
+        return result;
     }
 
     private static void PrintResult(string label, BoundaryImportResult result)

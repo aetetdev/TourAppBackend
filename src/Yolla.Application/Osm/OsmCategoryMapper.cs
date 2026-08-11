@@ -50,7 +50,14 @@ public static class OsmCategoryMapper
         ["lighthouse"] = "tower",
         ["church"] = "church",
         ["monastery"] = "monastery",
-        ["mosque"] = "mosque"
+        ["mosque"] = "mosque",
+        ["battlefield"] = "battlefield",
+        // Açık havada sergilenen tarihi araçlar (müze bahçesindeki lokomotif, uçak, tank)
+        ["locomotive"] = "monument",
+        ["aircraft"] = "monument",
+        ["tank"] = "monument",
+        ["ship"] = "monument",
+        ["wreck"] = "monument"
     };
 
     private static readonly Dictionary<string, string> TourismMap = new()
@@ -75,7 +82,9 @@ public static class OsmCategoryMapper
         ["volcano"] = "valley",
         ["peak"] = "viewpoint",
         ["cliff"] = "viewpoint",
-        ["arch"] = "viewpoint"
+        ["arch"] = "viewpoint",
+        // Kuş cennetleri ve deltalar sulak alan olarak işaretlenir
+        ["wetland"] = "wetland"
     };
 
     private static readonly Dictionary<string, string> LeisureMap = new()
@@ -92,6 +101,9 @@ public static class OsmCategoryMapper
         ["lighthouse"] = "tower",
         ["tower"] = "tower",
         ["obelisk"] = "monument",
+        // Antik sütun ve kemerler
+        ["column"] = "monument",
+        ["arch"] = "monument",
         ["watermill"] = "historic_building",
         ["windmill"] = "historic_building"
     };
@@ -120,7 +132,7 @@ public static class OsmCategoryMapper
                 return TouristInformation;
             }
 
-            if (tourism is "camp_site" or "caravan_site")
+            if (tourism is "camp_site" or "caravan_site" or "camp_pitch")
             {
                 return CampSite;
             }

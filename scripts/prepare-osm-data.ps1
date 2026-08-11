@@ -39,8 +39,38 @@ if (-not (Test-Path $dataDir)) {
     New-Item -ItemType Directory -Path $dataDir | Out-Null
 }
 
+$script:OsmiumImageReady = $false
+
+# "docker compose run" imajı kendiliğinden derlemez; yoksa kayıttan çekmeye çalışıp başarısız olur.
+# Bu yüzden ilk kullanımdan önce bir kez derliyoruz.
+function Initialize-OsmiumImage {
+    if ($script:OsmiumImageReady) {
+        return
+    }
+
+    Push-Location $repoRoot
+    try {
+        $existing = & docker images -q yolla-osmium 2>$null
+
+        if ([string]::IsNullOrWhiteSpace($existing)) {
+            Write-Host "      osmium imajı derleniyor (ilk çalıştırmada ~1 dk)..." -ForegroundColor DarkGray
+            & docker compose build osmium
+            if ($LASTEXITCODE -ne 0) {
+                throw "osmium imajı derlenemedi."
+            }
+        }
+
+        $script:OsmiumImageReady = $true
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Invoke-Osmium {
     param([string[]]$Arguments)
+
+    Initialize-OsmiumImage
 
     Push-Location $repoRoot
     try {

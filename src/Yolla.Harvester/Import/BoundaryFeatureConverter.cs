@@ -70,11 +70,15 @@ public static class BoundaryFeatureConverter
 
     private static bool MatchesAdminLevel(OsmFeature feature, int expectedAdminLevel)
     {
+        // Etiket zorunlu. osmium tags-filter seçtiği ilişkilerin üye yollarını da dosyada
+        // bırakır ve export bunları bağımsız alan olarak yazar; sonuçta il dosyasına
+        // mahalleler ve adalar da karışır. Tek güvenilir ayraç admin_level etiketinin
+        // kendisidir: 81 il için 13 binden fazla aday kayıt geliyor.
         var value = feature.GetTag("admin_level");
 
-        // Etiket yoksa dosya zaten seviyeye göre süzülmüş kabul edilir
-        return string.IsNullOrWhiteSpace(value)
-               || (int.TryParse(value, out var level) && level == expectedAdminLevel);
+        return !string.IsNullOrWhiteSpace(value)
+               && int.TryParse(value, out var level)
+               && level == expectedAdminLevel;
     }
 
     private static bool BelongsToCountry(OsmFeature feature, string countryCodePrefix)

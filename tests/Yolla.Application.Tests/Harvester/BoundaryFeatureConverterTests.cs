@@ -58,12 +58,22 @@ public class BoundaryFeatureConverterTests
     }
 
     [Fact]
-    public void Idari_seviye_etiketi_yoksa_kabul_edilir()
+    public void Idari_seviye_etiketi_yoksa_elenir()
     {
-        // Dosya zaten seviyeye göre süzülmüş durumda
-        var feature = Boundary(4, ("name", "Test İli"));
+        // osmium çıktısında il dosyasına mahalleler ve adalar da karışıyor;
+        // bunların admin_level etiketi yok. Tek güvenilir ayraç bu etiket.
+        var feature = Boundary(4, ("name", "Sıçan Adası"));
 
-        BoundaryFeatureConverter.Convert(feature, expectedAdminLevel: 4).ShouldNotBeNull();
+        BoundaryFeatureConverter.Convert(feature, expectedAdminLevel: 4).ShouldBeNull();
+    }
+
+    [Fact]
+    public void Belediye_ve_mahalle_sinirlari_ilce_sayilmaz()
+    {
+        // İlçe dosyasındaki 13 bin kaydın 12 bini admin_level=8 (belediye/mahalle)
+        var feature = Boundary(5, ("name", "Cumhuriyet Mahallesi"), ("admin_level", "8"));
+
+        BoundaryFeatureConverter.Convert(feature, expectedAdminLevel: 6).ShouldBeNull();
     }
 
     [Fact]

@@ -16,6 +16,9 @@ namespace Yolla.Harvester.Import;
 /// </remarks>
 public sealed class BoundaryImporter(NpgsqlDataSource dataSource)
 {
+    // Sınır poligonları büyük; 1000 ilçeyi 81 ille kesiştirmek varsayılan 30 saniyeyi aşıyor
+    private const int CommandTimeoutSeconds = 900;
+
     private static readonly WKBWriter WkbWriter = new();
 
     /// <summary>İl sınırlarını (admin_level=4) cities tablosuna aktarır.</summary>
@@ -32,7 +35,7 @@ public sealed class BoundaryImporter(NpgsqlDataSource dataSource)
         }
 
         const string upsertSql = """
-            WITH valid AS (
+            WITH valid AS MATERIALIZED (
                 SELECT
                     s.osm_relation_id,
                     s.name,
@@ -100,7 +103,7 @@ public sealed class BoundaryImporter(NpgsqlDataSource dataSource)
         // İlçenin bağlı olduğu il, ilçe yüzeyindeki bir noktanın hangi il poligonuna
         // düştüğüne bakılarak bulunur. İl sınırları önceden yüklenmiş olmalıdır.
         const string upsertSql = """
-            WITH valid AS (
+            WITH valid AS MATERIALIZED (
                 SELECT
                     s.osm_relation_id,
                     s.name,
@@ -109,25 +112,33 @@ public sealed class BoundaryImporter(NpgsqlDataSource dataSource)
                     ST_MakeValid(ST_GeomFromWKB(s.boundary_wkb, 4326)) AS boundary
                 FROM staging_boundaries s
             ),
+            -- Bağlantı noktası bir kez hesaplanır; JOIN içinde bırakılırsa her il
+            -- karşılaştırmasında yeniden üretilir ve sorgu dakikalarca sürer
+            located AS MATERIALIZED (
+                SELECT
+                    v.*,
+                    ST_PointOnSurface(v.boundary) AS anchor
+                FROM valid v
+                WHERE NOT ST_IsEmpty(v.boundary)
+            ),
             upserted AS (
                 INSERT INTO districts (
                     city_id, osm_relation_id, name, name_normalized, slug, boundary, created_at
                 )
-                SELECT DISTINCT ON (v.osm_relation_id)
+                SELECT DISTINCT ON (l.osm_relation_id)
                     ci.id,
-                    v.osm_relation_id,
-                    v.name,
-                    v.name_normalized,
-                    v.slug,
-                    v.boundary,
+                    l.osm_relation_id,
+                    l.name,
+                    l.name_normalized,
+                    l.slug,
+                    l.boundary,
                     now()
-                FROM valid v
+                FROM located l
                 JOIN cities ci
-                    ON ST_Intersects(ci.boundary, ST_PointOnSurface(v.boundary))
+                    ON ST_Intersects(ci.boundary, l.anchor)
                 JOIN countries co
                     ON co.id = ci.country_id AND co.iso2 = @iso2
-                WHERE NOT ST_IsEmpty(v.boundary)
-                ORDER BY v.osm_relation_id, ci.id
+                ORDER BY l.osm_relation_id, ci.id
                 ON CONFLICT (osm_relation_id) WHERE osm_relation_id IS NOT NULL
                 DO UPDATE SET
                     city_id         = EXCLUDED.city_id,
@@ -161,7 +172,11 @@ public sealed class BoundaryImporter(NpgsqlDataSource dataSource)
         await CreateStagingTableAsync(connection, cancellationToken);
         await CopyAsync(connection, rows, cancellationToken);
 
-        await using var command = new NpgsqlCommand(upsertSql, connection);
+        await using var command = new NpgsqlCommand(upsertSql, connection)
+        {
+            CommandTimeout = CommandTimeoutSeconds
+        };
+
         command.Parameters.AddWithValue("iso2", countryIso2.ToUpperInvariant());
 
         var inserted = 0;

@@ -220,6 +220,45 @@ public class OsmCategoryMapperTests
         OsmCategoryMapper.Map(Tags(("place", "island"))).ShouldBe("island");
     }
 
+    // --- Gerçek veri taramasından sonra eklenen eşlemeler ---
+
+    [Fact]
+    public void Savas_alani_kendi_kategorisine_gider()
+    {
+        // Çanakkale ve Dumlupınar gibi alanlar Türkiye için önemli
+        OsmCategoryMapper.Map(Tags(("historic", "battlefield"))).ShouldBe("battlefield");
+    }
+
+    [Theory]
+    [InlineData("locomotive")]
+    [InlineData("aircraft")]
+    [InlineData("tank")]
+    [InlineData("ship")]
+    public void Acik_havada_sergilenen_tarihi_araclar_anit_sayilir(string historicValue)
+    {
+        // Müze bahçesindeki lokomotif, park içindeki uçak
+        OsmCategoryMapper.Map(Tags(("historic", historicValue))).ShouldBe("monument");
+    }
+
+    [Fact]
+    public void Antik_sutun_anit_sayilir()
+    {
+        OsmCategoryMapper.Map(Tags(("man_made", "column"))).ShouldBe("monument");
+    }
+
+    [Fact]
+    public void Sulak_alan_kendi_kategorisine_gider()
+    {
+        // Kuş cennetleri ve deltalar
+        OsmCategoryMapper.Map(Tags(("natural", "wetland"))).ShouldBe("wetland");
+    }
+
+    [Fact]
+    public void Kamp_alani_parcasi_da_gizli_kategoriye_duser()
+    {
+        OsmCategoryMapper.Map(Tags(("tourism", "camp_pitch"))).ShouldBe(OsmCategoryMapper.CampSite);
+    }
+
     // --- Elenmesi gerekenler ---
 
     [Theory]

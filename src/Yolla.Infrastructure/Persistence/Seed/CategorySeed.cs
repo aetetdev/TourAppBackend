@@ -32,6 +32,7 @@ public static class CategorySeed
             Child(16, 1, "tomb", "Türbe", "Tomb", "landmark", 6),
             Child(17, 1, "caravanserai", "Kervansaray", "Caravanserai", "warehouse", 9),
             Child(18, 1, "tower", "Kule", "Tower", "tower", 7),
+            Child(19, 1, "battlefield", "Savaş Alanı", "Battlefield", "swords", 9),
 
             // --- Kültür & Sanat ---
             Child(20, 2, "museum", "Müze", "Museum", "museum", 10),
@@ -50,6 +51,7 @@ public static class CategorySeed
             Child(37, 3, "valley", "Vadi & Kanyon", "Valley & Canyon", "mountain-snow", 8),
             Child(38, 3, "island", "Ada", "Island", "palmtree", 7),
             Child(39, 3, "park", "Park", "Park", "tree-deciduous", 4),
+            Child(44, 3, "wetland", "Sulak Alan", "Wetland", "bird", 7),
 
             // --- İnanç ---
             Child(40, 4, "mosque", "Cami", "Mosque", "mosque", 6),
