@@ -13,10 +13,27 @@ namespace Yolla.Infrastructure;
 
 public static class DependencyInjection
 {
+    /// <summary>docker-compose'daki varsayılan geliştirme şifresi.</summary>
+    private const string LocalDevelopmentPassword = "yolla_dev";
+
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("Postgres")
             ?? throw new InvalidOperationException("ConnectionStrings:Postgres tanımlı değil.");
+
+        // Ortam belirsizse en kısıtlayıcı varsayım yapılır
+        var environmentName = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
+
+        // Yerel geliştirme şifresi appsettings.json'da açık duruyor (docker-compose ile aynı).
+        // Üretime kadar taşınırsa gerçek bir güvenlik açığı olur; bu yüzden Development
+        // dışındaki ortamlarda kullanılmasına izin verilmiyor.
+        if (connectionString.Contains(LocalDevelopmentPassword, StringComparison.Ordinal)
+            && !string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"'{environmentName}' ortamında yerel geliştirme şifresi kullanılamaz. "
+                + "ConnectionStrings__Postgres ortam değişkenini tanımlayın.");
+        }
 
         services.AddDbContext<YollaDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql =>
