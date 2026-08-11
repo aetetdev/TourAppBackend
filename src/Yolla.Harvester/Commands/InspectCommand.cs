@@ -1,5 +1,5 @@
-using Yolla.Application.Osm;
 using Yolla.Application.Places;
+using Yolla.Harvester.Import;
 using Yolla.Harvester.Osm;
 
 namespace Yolla.Harvester.Commands;
@@ -11,18 +11,16 @@ namespace Yolla.Harvester.Commands;
 /// Amaç, içe aktarmadan önce veriyi görmek: kaç kayıt turistik yer sayılıyor, hangi
 /// kategorilere dağılıyor, kaçı adsız olduğu için elenecek. Kategori eşlemesinde bir
 /// hata varsa burada fark edilir, 100 bin satır veritabanına yazıldıktan sonra değil.
+///
+/// İçe aktarmayla aynı dönüştürücüyü kullanır; rapor ile gerçek sonuç ayrışmaz.
 /// </remarks>
 public static class InspectCommand
 {
     public static Task<int> RunAsync(string[] args)
     {
-        if (args.Length == 0)
-        {
-            Console.Error.WriteLine("Kullanım: inspect <dosya.geojsonl>");
-            return Task.FromResult(1);
-        }
-
-        var filePath = args[0];
+        var options = new CommandLineArgs(args);
+        var filePath = options.Positional.FirstOrDefault()
+                       ?? options.GetValue("file", Path.Combine("data", "poi.geojsonl"))!;
 
         if (!File.Exists(filePath))
         {
@@ -37,51 +35,38 @@ public static class InspectCommand
         {
             stats.Total++;
 
-            var category = OsmCategoryMapper.Map(feature.Tags);
+            // Gizli kategoriler de dönüştürülüyor ki raporda ayrı satır olarak görünsünler
+            var result = PlaceFeatureConverter.Convert(feature, includeHiddenCategories: true);
 
-            if (category is null)
+            if (result.Row is null)
             {
-                stats.Unmapped++;
-                TrackUnmappedTags(stats, feature);
+                stats.Record(result.SkipReason);
+
+                if (result.SkipReason is PlaceSkipReason.NoCategory)
+                {
+                    TrackUnmappedTags(stats, feature);
+                }
+
                 continue;
             }
 
-            if (IsHiddenCategory(category))
+            var row = result.Row;
+
+            if (PlaceFeatureConverter.IsHidden(row.CategoryKey))
             {
                 stats.Hidden++;
-                stats.CountCategory(category);
-                continue;
+            }
+            else
+            {
+                stats.Usable++;
+
+                if (row.QualityScore >= PlaceQualityScorer.FeedThreshold)
+                {
+                    stats.AboveThreshold++;
+                }
             }
 
-            var name = feature.GetTag("name");
-
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                stats.Unnamed++;
-                continue;
-            }
-
-            var score = PlaceQualityScorer.Score(new PlaceQualityInput
-            {
-                Name = name,
-                HasWikidata = feature.Tags.ContainsKey("wikidata"),
-                HasWikipedia = feature.Tags.ContainsKey("wikipedia"),
-                HasNameEn = feature.Tags.ContainsKey("name:en"),
-                HasDescription = feature.Tags.ContainsKey("description"),
-                HasWebsite = feature.Tags.ContainsKey("website") || feature.Tags.ContainsKey("contact:website"),
-                HasOpeningHours = feature.Tags.ContainsKey("opening_hours"),
-                // Bu aşamada fotoğraf henüz çekilmedi; skor zenginleştirme sonrası yükselecek
-                HasPhoto = false,
-                CategoryWeight = 0
-            });
-
-            stats.Usable++;
-            stats.CountCategory(category);
-
-            if (score >= PlaceQualityScorer.FeedThreshold)
-            {
-                stats.AboveThreshold++;
-            }
+            stats.CountCategory(row.CategoryKey);
         }
 
         stats.SkippedLines = reader.SkippedLineCount;
@@ -90,11 +75,6 @@ public static class InspectCommand
 
         return Task.FromResult(0);
     }
-
-    private static bool IsHiddenCategory(string category) =>
-        category is OsmCategoryMapper.Accommodation
-            or OsmCategoryMapper.TouristInformation
-            or OsmCategoryMapper.CampSite;
 
     private static void TrackUnmappedTags(InspectionStats stats, OsmFeature feature)
     {
@@ -157,12 +137,23 @@ public static class InspectCommand
         public int Usable { get; set; }
         public int AboveThreshold { get; set; }
         public int Hidden { get; set; }
-        public int Unnamed { get; set; }
-        public int Unmapped { get; set; }
+        public int Unnamed { get; private set; }
+        public int Unmapped { get; private set; }
         public int SkippedLines { get; set; }
 
         public Dictionary<string, int> Categories { get; } = [];
         public Dictionary<string, int> UnmappedTags { get; } = [];
+
+        public void Record(PlaceSkipReason reason)
+        {
+            if (reason is PlaceSkipReason.NoCategory)
+            {
+                Unmapped++;
+                return;
+            }
+
+            Unnamed++;
+        }
 
         public void CountCategory(string category) =>
             Categories[category] = Categories.GetValueOrDefault(category) + 1;

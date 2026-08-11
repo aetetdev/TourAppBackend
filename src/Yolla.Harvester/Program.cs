@@ -19,13 +19,29 @@ public static class Program
         var command = args[0].ToLowerInvariant();
         var commandArgs = args.Skip(1).ToArray();
 
+        using var cancellation = new CancellationTokenSource();
+
+        Console.CancelKeyPress += (_, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            cancellation.Cancel();
+            Console.WriteLine("İptal ediliyor...");
+        };
+
         try
         {
             return command switch
             {
                 "inspect" => await InspectCommand.RunAsync(commandArgs),
+                "import-boundaries" => await ImportBoundariesCommand.RunAsync(commandArgs, cancellation.Token),
+                "import-places" => await ImportPlacesCommand.RunAsync(commandArgs, cancellation.Token),
                 _ => UnknownCommand(command)
             };
+        }
+        catch (OperationCanceledException)
+        {
+            Console.Error.WriteLine("İşlem iptal edildi.");
+            return 130;
         }
         catch (Exception ex)
         {
@@ -54,9 +70,25 @@ public static class Program
               dotnet run --project src/Yolla.Harvester -- <komut> [seçenekler]
 
             KOMUTLAR
-              inspect <dosya.geojsonl>   Veri dosyasını analiz eder: kaç kayıt var, hangi
+              inspect [dosya]            Veri dosyasını analiz eder: kaç kayıt var, hangi
                                          kategorilere düşüyor, kaçı eleniyor. Veritabanına
                                          yazmadan önce veri kalitesini görmek için.
+                                         Varsayılan: data/poi.geojsonl
+
+              import-boundaries          İl ve ilçe sınırlarını aktarır. Yerlerden ÖNCE
+                                         çalıştırılmalı: il/ilçe ataması bu poligonlarla yapılır.
+                --provinces <dosya>      Varsayılan: data/provinces.geojsonl
+                --districts <dosya>      Varsayılan: data/districts.geojsonl
+
+              import-places              Turistik yerleri aktarır. Tekrar çalıştırılabilir;
+                                         kayıtlar (osm_type, osm_id) ile eşleşip güncellenir.
+                --file <dosya>           Varsayılan: data/poi.geojsonl
+                --include-hidden         Otel, turizm bürosu ve kamp alanlarını da aktarır.
+
+            ORTAK SEÇENEKLER
+              --country <ISO2>           Varsayılan: TR
+              --connection <dize>        Veritabanı bağlantısı. Verilmezse YOLLA_CONNECTION
+                                         ortam değişkeni, o da yoksa yerel geliştirme ayarı.
 
             ÖNCE
               Ham OSM verisi hazırlanmalı:

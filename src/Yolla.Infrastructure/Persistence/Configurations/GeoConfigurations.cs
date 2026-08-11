@@ -38,6 +38,12 @@ public class CityConfiguration : IEntityTypeConfiguration<City>
         builder.HasIndex(x => x.NameNormalized);
         builder.HasIndex(x => x.Center).HasMethod("gist");
 
+        // Veri toplayıcının idempotent çalışması bu kimliğe dayanıyor
+        builder.HasIndex(x => x.OsmRelationId).IsUnique().HasFilter("osm_relation_id IS NOT NULL");
+
+        // Şehir içi mod, sınır poligonu içindeki yerleri sorgular
+        builder.HasIndex(x => x.Boundary).HasMethod("gist");
+
         builder.HasOne(x => x.Country)
             .WithMany(x => x.Cities)
             .HasForeignKey(x => x.CountryId)
@@ -57,6 +63,8 @@ public class DistrictConfiguration : IEntityTypeConfiguration<District>
             .HasColumnType("geometry (Geometry, 4326)");
 
         builder.HasIndex(x => new { x.CityId, x.NameNormalized });
+        builder.HasIndex(x => x.OsmRelationId).IsUnique().HasFilter("osm_relation_id IS NOT NULL");
+        builder.HasIndex(x => x.Boundary).HasMethod("gist");
 
         builder.HasOne(x => x.City)
             .WithMany(x => x.Districts)

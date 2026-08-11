@@ -24,6 +24,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Invoke-WebRequest'in ilerleme çubuğu büyük dosyalarda indirmeyi kat kat yavaşlatır
+$ProgressPreference = "SilentlyContinue"
+
+# Türkçe karakterlerin konsolda doğru görünmesi için
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $dataDir = Join-Path $repoRoot "data"
 $pbfName = "turkey-latest.osm.pbf"

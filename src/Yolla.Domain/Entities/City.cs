@@ -10,6 +10,11 @@ public class City : BaseEntity
 
     public Country Country { get; set; } = null!;
 
+    // OSM'deki idari sınır ilişkisi (admin_level=4).
+    // Veri toplayıcı tekrar çalıştığında kayıtlar bu kimlikle eşleşir; şehir adı
+    // değişse bile yeni kayıt oluşmaz.
+    public long? OsmRelationId { get; set; }
+
     public string Name { get; set; } = string.Empty;
 
     // Türkçe karakterler sadeleştirilmiş arama alanı: "İstanbul" -> "istanbul"
