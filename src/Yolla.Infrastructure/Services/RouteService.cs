@@ -15,6 +15,13 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
     private const int MinBufferKm = 1;
     private const int MaxBufferKm = 50;
     private const int MaxTake = 50;
+    private const int MaxEndpointExclusionKm = 100;
+
+    /// <summary>Rotanın kaç dilime bölüneceği; kartların yol boyunca dağılması için.</summary>
+    private const int SegmentCount = 24;
+
+    /// <summary>Her dilimden alınacak en fazla yer sayısı.</summary>
+    private const int PerSegmentLimit = 3;
 
     /// <summary>Gezme süresi bilinmeyen yerler için varsayılan (dakika).</summary>
     private const int DefaultVisitMinutes = 45;
@@ -150,12 +157,15 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
             : string.Empty;
 
         var cursorFilter = hasCursor
-            ? "WHERE (t.progress > @cursor_progress OR (t.progress = @cursor_progress AND t.id > @cursor_id))"
+            ? "AND (t.progress > @cursor_progress OR (t.progress = @cursor_progress AND t.id > @cursor_id))"
             : string.Empty;
 
         var sql = $"""
             WITH route AS (
-                SELECT ST_SetSRID(ST_GeomFromGeoJSON(@geojson), 4326) AS line
+                SELECT
+                    ST_SetSRID(ST_GeomFromGeoJSON(@geojson), 4326) AS line,
+                    ST_SetSRID(ST_MakePoint(@start_lon, @start_lat), 4326)::geography AS start_point,
+                    ST_SetSRID(ST_MakePoint(@end_lon, @end_lat), 4326)::geography AS end_point
             ),
             candidates AS (
                 SELECT
@@ -192,10 +202,26 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
                   AND p.photo_author IS NOT NULL
                   AND p.photo_license IS NOT NULL
                   AND p.quality_score >= @min_score
+                  -- Kullanıcının çıktığı ve vardığı şehrin merkezi hariç: oraları zaten biliyor
+                  AND ST_Distance(p.location, r.start_point) > @endpoint_meters
+                  AND ST_Distance(p.location, r.end_point)   > @endpoint_meters
                   {categoryFilter}
                   {deviceFilter}
+            ),
+            -- Yol boyunca dengeli dağıtım: rota eşit dilimlere bölünüp her dilimden
+            -- en kaliteli birkaç yer alınıyor. Yalnızca puana göre sıralansaydı tek bir
+            -- yoğun bölge (örneğin bir şehrin tarihi merkezi) tüm sayfayı doldururdu.
+            ranked AS (
+                SELECT
+                    t.*,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY width_bucket(t.progress, 0, 1, @segment_count)
+                        ORDER BY t.quality_score DESC, t.detour_meters
+                    ) AS rank_in_segment
+                FROM candidates t
             )
-            SELECT * FROM candidates t
+            SELECT * FROM ranked t
+            WHERE t.rank_in_segment <= @per_segment
             {cursorFilter}
             ORDER BY t.progress, t.id
             LIMIT @take
@@ -209,6 +235,14 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
         AddParameter(command, "geojson", NpgsqlDbType.Text, routeGeoJson);
         AddParameter(command, "buffer_meters", NpgsqlDbType.Double, (double)bufferKm * 1000);
         AddParameter(command, "min_score", NpgsqlDbType.Smallint, PlaceQualityScorer.FeedThreshold);
+        AddParameter(command, "start_lat", NpgsqlDbType.Double, request.Start.Latitude);
+        AddParameter(command, "start_lon", NpgsqlDbType.Double, request.Start.Longitude);
+        AddParameter(command, "end_lat", NpgsqlDbType.Double, request.End.Latitude);
+        AddParameter(command, "end_lon", NpgsqlDbType.Double, request.End.Longitude);
+        AddParameter(command, "endpoint_meters", NpgsqlDbType.Double,
+            (double)Math.Clamp(request.ExcludeEndpointsKm, 0, MaxEndpointExclusionKm) * 1000);
+        AddParameter(command, "segment_count", NpgsqlDbType.Integer, SegmentCount);
+        AddParameter(command, "per_segment", NpgsqlDbType.Integer, PerSegmentLimit);
         // Bir fazlası çekiliyor: devamı var mı anlamak için
         AddParameter(command, "take", NpgsqlDbType.Integer, take + 1);
 

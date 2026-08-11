@@ -66,6 +66,17 @@ public sealed record CorridorFeedRequest
     /// <summary>Yolun kaç kilometre çevresine bakılacağı (1-50, varsayılan 15).</summary>
     public int BufferKm { get; init; } = 15;
 
+    /// <summary>
+    /// Başlangıç ve varış noktalarının kaç kilometre çevresi hariç tutulacağı
+    /// (0-100, varsayılan 20).
+    /// </summary>
+    /// <remarks>
+    /// Kullanıcı yola çıkarken bulunduğu şehrin merkezindeki yerleri görmek istemiyor;
+    /// onları zaten biliyor. Bu ayar olmadan İstanbul-Antalya sorgusu ilk sayfada
+    /// Topkapı Sarayı çevresindeki 15 yeri döndürüyordu.
+    /// </remarks>
+    public int ExcludeEndpointsKm { get; init; } = 20;
+
     public int Take { get; init; } = 20;
 
     public string? Cursor { get; init; }
