@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Yolla.Api.Extensions;
 using Yolla.Application.Common;
 using Yolla.Application.Discovery;
 
@@ -21,7 +23,9 @@ namespace Yolla.Api.Controllers;
 [ApiController]
 [Route("api/v1/discovery")]
 [Produces("application/json")]
-public sealed class DiscoveryController(IDiscoveryService discoveryService) : ControllerBase
+public sealed class DiscoveryController(
+    IDiscoveryService discoveryService,
+    ISwipeService swipeService) : ControllerBase
 {
     /// <summary>Bir şehrin kart destesini döndürür.</summary>
     /// <param name="cityId">Şehir kimliği.</param>
@@ -37,6 +41,7 @@ public sealed class DiscoveryController(IDiscoveryService discoveryService) : Co
     /// </param>
     /// <param name="deviceId">
     /// Cihaz kimliği. Verilirse daha önce kaydırılmış yerler tekrar gösterilmez.
+    /// Jetonla istek yapılıyorsa bu parametreye gerek yoktur; cihaz jetondan okunur.
     /// </param>
     /// <param name="language">İçerik dili (<c>tr</c> veya <c>en</c>). Varsayılan <c>tr</c>.</param>
     /// <response code="200">Kart listesi ve sonraki sayfa imleci.</response>
@@ -59,7 +64,9 @@ public sealed class DiscoveryController(IDiscoveryService discoveryService) : Co
             Cursor = cursor,
             Take = take,
             CategoryKeys = ParseCategories(categories),
-            DeviceId = deviceId,
+            // Jeton varsa cihaz oradan okunur; sorgu parametresi yalnızca jetonsuz
+            // kullanım (web önizleme, test) için geçerlidir
+            DeviceId = ResolveDeviceId(deviceId),
             Language = language
         };
 
@@ -67,6 +74,70 @@ public sealed class DiscoveryController(IDiscoveryService discoveryService) : Co
 
         return Ok(ApiResponse<CursorPage<PlaceCardDto>>.Create(page, Attribution.Places));
     }
+
+    /// <summary>Kart kaydırmalarını kaydeder.</summary>
+    /// <remarks>
+    /// Kaydırmalar iki işe yarar: aynı yerin tekrar gösterilmemesi ve önerilerin
+    /// kişiselleştirilmesi. Aynı yer daha önce kaydırılmışsa yön güncellenir, yeni kayıt
+    /// açılmaz - kullanıcı fikrini değiştirebilir.
+    ///
+    /// Çevrimdışı biriken kaydırmalar tek istekte toplu gönderilebilir (en fazla 200 adet).
+    ///
+    /// Örnek istek:
+    ///
+    ///     POST /api/v1/discovery/swipes
+    ///     {
+    ///       "swipes": [
+    ///         { "placeId": 93, "direction": "Like", "context": "City" },
+    ///         { "placeId": 94, "direction": "Pass", "context": "City" }
+    ///       ]
+    ///     }
+    /// </remarks>
+    /// <response code="200">Kaydedilen kaydırma sayısı ve toplam beğeni.</response>
+    /// <response code="400">Liste boş, çok uzun veya yerler bulunamadı.</response>
+    /// <response code="401">Cihaz jetonu gerekli.</response>
+    [HttpPost("swipes")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<SwipeResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RecordSwipes(
+        [FromBody] SwipeBatchRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await swipeService.RecordAsync(
+            User.GetDeviceId(), request.Swipes, cancellationToken);
+
+        return Ok(ApiResponse<SwipeResultDto>.Create(result));
+    }
+
+    /// <summary>Cihazın beğendiği yerleri döndürür.</summary>
+    /// <remarks>
+    /// Kullanıcının sağa kaydırdığı yerler, en son beğenilen başta olacak şekilde.
+    /// Rota oluştururken bu liste kullanılır.
+    /// </remarks>
+    /// <param name="language">İçerik dili (<c>tr</c> veya <c>en</c>).</param>
+    /// <response code="200">Beğenilen yerler.</response>
+    /// <response code="401">Cihaz jetonu gerekli.</response>
+    [HttpGet("swipes/liked")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PlaceCardDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetLikedPlaces(
+        [FromQuery] string language = "tr",
+        CancellationToken cancellationToken = default)
+    {
+        var places = await swipeService.GetLikedPlacesAsync(
+            User.GetDeviceId(), language, cancellationToken);
+
+        return Ok(ApiResponse<IReadOnlyList<PlaceCardDto>>.Create(places, Attribution.Places));
+    }
+
+    /// <summary>
+    /// Cihazı belirler: jeton varsa oradan, yoksa sorgu parametresinden.
+    /// </summary>
+    private int? ResolveDeviceId(int? fromQuery) =>
+        User.Identity?.IsAuthenticated == true ? User.GetDeviceId() : fromQuery;
 
     private static IReadOnlyList<string>? ParseCategories(string? categories)
     {

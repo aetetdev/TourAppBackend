@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
@@ -14,10 +15,17 @@ builder.Host.UseSerilog((context, config) =>
 // Identity token sağlayıcıları (şifre sıfırlama, e-posta doğrulama) DataProtection'a bağlı
 builder.Services.AddDataProtection();
 
-// Postgres/PostGIS, Identity, Redis, uygulama servisleri
-builder.Services.AddInfrastructure(builder.Configuration);
+// Postgres/PostGIS, Identity, Redis, kimlik doğrulama, uygulama servisleri
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Enum'lar sayı değil metin olarak taşınır: "Like", "Pass", "City".
+        // Sayısal değerler istemcide anlamsız ve sıralama değişirse sessizce bozulur.
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddOpenApi();
 
 builder.Services.AddHealthChecks()

@@ -2,9 +2,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using StackExchange.Redis;
+using Yolla.Application.Auth;
 using Yolla.Application.Discovery;
 using Yolla.Application.Geo;
+using Yolla.Infrastructure.Auth;
 using Yolla.Infrastructure.Identity;
 using Yolla.Infrastructure.Persistence;
 using Yolla.Infrastructure.Services;
@@ -16,13 +19,23 @@ public static class DependencyInjection
     /// <summary>docker-compose'daki varsayılan geliştirme şifresi.</summary>
     private const string LocalDevelopmentPassword = "yolla_dev";
 
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    /// <param name="environment">
+    /// Ortam bilgisi doğrudan barındırma katmanından alınır. Yapılandırmadan
+    /// (<c>ASPNETCORE_ENVIRONMENT</c> anahtarı) okumak güvenilir değil: test altyapısı
+    /// ortamı <c>UseEnvironment</c> ile ayarladığında bu anahtar yapılandırmaya yansımıyor
+    /// ve uygulama kendini Production sanıyor.
+    /// </param>
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
+        ArgumentNullException.ThrowIfNull(environment);
+
         var connectionString = configuration.GetConnectionString("Postgres")
             ?? throw new InvalidOperationException("ConnectionStrings:Postgres tanımlı değil.");
 
-        // Ortam belirsizse en kısıtlayıcı varsayım yapılır
-        var environmentName = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
+        var environmentName = environment.EnvironmentName;
 
         // Yerel geliştirme şifresi appsettings.json'da açık duruyor (docker-compose ile aynı).
         // Üretime kadar taşınırsa gerçek bir güvenlik açığı olur; bu yüzden Development
@@ -57,6 +70,10 @@ public static class DependencyInjection
 
         services.AddScoped<IGeoService, GeoService>();
         services.AddScoped<IDiscoveryService, DiscoveryService>();
+        services.AddScoped<IDeviceSessionService, DeviceSessionService>();
+        services.AddScoped<ISwipeService, SwipeService>();
+
+        services.AddJwtAuthentication(configuration, environmentName);
 
         var redisConnection = configuration.GetConnectionString("Redis");
         if (!string.IsNullOrWhiteSpace(redisConnection))
