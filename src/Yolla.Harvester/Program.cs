@@ -35,6 +35,7 @@ public static class Program
                 "inspect" => await InspectCommand.RunAsync(commandArgs),
                 "import-boundaries" => await ImportBoundariesCommand.RunAsync(commandArgs, cancellation.Token),
                 "import-places" => await ImportPlacesCommand.RunAsync(commandArgs, cancellation.Token),
+                "enrich" => await EnrichCommand.RunAsync(commandArgs, cancellation.Token),
                 _ => UnknownCommand(command)
             };
         }
@@ -84,6 +85,13 @@ public static class Program
                                          kayıtlar (osm_type, osm_id) ile eşleşip güncellenir.
                 --file <dosya>           Varsayılan: data/poi.geojsonl
                 --include-hidden         Otel, turizm bürosu ve kamp alanlarını da aktarır.
+
+              enrich                     Wikidata kimliği olan yerlere Commons'tan fotoğraf
+                                         (fotoğrafçı ve lisans bilgisiyle) ve Wikipedia'dan
+                                         özet ekler, kalite puanını yeniden hesaplar.
+                --limit <sayı>           Yalnızca ilk N kaydı işler (deneme için).
+                --refresh                Fotoğrafı olan kayıtları da yeniden çeker.
+                --delay <ms>             İstekler arası bekleme. Varsayılan: 150
 
             ORTAK SEÇENEKLER
               --country <ISO2>           Varsayılan: TR
