@@ -7,6 +7,8 @@
     <UserSecretsId>67cc57cd-ec26-4b27-9c48-d86941d1f441</UserSecretsId>
     <!-- XML yorumları OpenAPI belgesine aktarılır; Scalar arayüzünde açıklama olarak görünür -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1573: iptal jetonu (CancellationToken) her uçta ayrıca belgelenmiyor, gürültü yaratıyor -->
+    <NoWarn>$(NoWarn);CS1573</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

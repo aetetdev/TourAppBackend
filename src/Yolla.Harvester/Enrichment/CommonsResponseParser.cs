@@ -175,7 +175,7 @@ public static class CommonsResponseParser
         return new CommonsPhoto
         {
             FileTitle = title,
-            Url = url,
+            Url = StripTrackingParameters(url),
             Author = Truncate(StripHtml(ReadMetadataValue(metadata, "Artist")), MaxAuthorLength),
             License = license,
             DescriptionUrl = info.GetPropertyOrNull("descriptionurl")?.GetString()
@@ -187,6 +187,21 @@ public static class CommonsResponseParser
         var value = metadata?.GetPropertyOrNull(key)?.GetPropertyOrNull("value");
 
         return value is { ValueKind: JsonValueKind.String } ? value.Value.GetString() : null;
+    }
+
+    /// <summary>
+    /// Commons API'sinin eklediği izleme parametrelerini adresten çıkarır.
+    /// </summary>
+    /// <remarks>
+    /// Yanıttaki adresler <c>?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo</c>
+    /// eklentisiyle geliyor. Bunlar görseli etkilemiyor ama adresi uzatıyor ve aynı görselin
+    /// farklı adreslerle kaydedilmesine yol açabiliyor.
+    /// </remarks>
+    internal static string StripTrackingParameters(string url)
+    {
+        var queryIndex = url.IndexOf('?');
+
+        return queryIndex < 0 ? url : url[..queryIndex];
     }
 
     /// <summary>

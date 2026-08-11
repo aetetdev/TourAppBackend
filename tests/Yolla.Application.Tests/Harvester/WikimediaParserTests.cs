@@ -152,6 +152,26 @@ public class CommonsResponseParserTests
     }
 
     [Fact]
+    public void Adresteki_izleme_parametreleri_temizlenir()
+    {
+        const string json = """
+            {"query":{"pages":{"1":{"title":"File:T.jpg","imageinfo":[{
+                "url":"https://upload.wikimedia.org/commons/f/f3/T.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo"
+            }]}}}}
+            """;
+
+        CommonsResponseParser.Parse(json)["File:T.jpg"].Url
+            .ShouldBe("https://upload.wikimedia.org/commons/f/f3/T.jpg");
+    }
+
+    [Fact]
+    public void Parametresiz_adres_degistirilmez()
+    {
+        CommonsResponseParser.StripTrackingParameters("https://example.com/a.jpg")
+            .ShouldBe("https://example.com/a.jpg");
+    }
+
+    [Fact]
     public void Kategori_uyeleri_cozulur()
     {
         // OSM etiketi çoğunlukla dosyayı değil kategoriyi gösterir

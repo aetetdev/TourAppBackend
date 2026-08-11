@@ -3,8 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
+using Yolla.Application.Discovery;
+using Yolla.Application.Geo;
 using Yolla.Infrastructure.Identity;
 using Yolla.Infrastructure.Persistence;
+using Yolla.Infrastructure.Services;
 
 namespace Yolla.Infrastructure;
 
@@ -34,6 +37,9 @@ public static class DependencyInjection
             .AddRoles<IdentityRole<int>>()
             .AddEntityFrameworkStores<YollaDbContext>()
             .AddDefaultTokenProviders();
+
+        services.AddScoped<IGeoService, GeoService>();
+        services.AddScoped<IDiscoveryService, DiscoveryService>();
 
         var redisConnection = configuration.GetConnectionString("Redis");
         if (!string.IsNullOrWhiteSpace(redisConnection))
