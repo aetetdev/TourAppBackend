@@ -66,6 +66,10 @@ public class Place : BaseEntity
 
     public string? WikipediaTitle { get; set; }
 
+    // OSM'deki wikimedia_commons etiketi: "File:X.jpg" ya da "Category:Y".
+    // Wikidata kaydı olmayan yerlerin fotoğrafı çoğunlukla buradan bulunur.
+    public string? CommonsRef { get; set; }
+
     public string? DescriptionTr { get; set; }
 
     public string? DescriptionEn { get; set; }

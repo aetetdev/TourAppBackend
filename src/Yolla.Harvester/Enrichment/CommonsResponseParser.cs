@@ -79,6 +79,61 @@ public static class CommonsResponseParser
         return result;
     }
 
+    /// <summary>
+    /// <c>categorymembers</c> yanıtından dosya başlıklarını çıkarır.
+    /// </summary>
+    public static IReadOnlyList<string> ParseCategoryMembers(string? json)
+    {
+        var result = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return result;
+        }
+
+        JsonDocument document;
+
+        try
+        {
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            return result;
+        }
+
+        using (document)
+        {
+            var members = document.RootElement
+                .GetPropertyOrNull("query")?
+                .GetPropertyOrNull("categorymembers");
+
+            if (members is not { ValueKind: JsonValueKind.Array })
+            {
+                return result;
+            }
+
+            foreach (var member in members.Value.EnumerateArray())
+            {
+                var title = member.GetPropertyOrNull("title")?.GetString();
+
+                // Kategori içinde ses ve video dosyaları da bulunabilir
+                if (!string.IsNullOrWhiteSpace(title) && IsImageFile(title))
+                {
+                    result.Add(title);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsImageFile(string title) =>
+        title.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+        || title.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
+        || title.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+        || title.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
+
     private static CommonsPhoto? ParsePage(JsonElement page)
     {
         if (page.TryGetProperty("missing", out _))

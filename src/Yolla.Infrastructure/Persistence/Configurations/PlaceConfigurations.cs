@@ -40,6 +40,7 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
 
         builder.Property(x => x.WikidataId).HasMaxLength(32);
         builder.Property(x => x.WikipediaTitle).HasMaxLength(250);
+        builder.Property(x => x.CommonsRef).HasMaxLength(300);
 
         builder.Property(x => x.Location)
             .HasColumnType("geography (Point, 4326)")

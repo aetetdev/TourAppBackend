@@ -15,6 +15,12 @@ public sealed record WikidataEntity
 
     /// <summary>İngilizce Wikipedia makale başlığı.</summary>
     public string? EnglishWikipediaTitle { get; init; }
+
+    /// <summary>Wikidata'nın tek cümlelik Türkçe tanımı ("Türkiye'de tarihi yapı").</summary>
+    public string? TurkishDescription { get; init; }
+
+    /// <summary>Wikidata'nın tek cümlelik İngilizce tanımı.</summary>
+    public string? EnglishDescription { get; init; }
 }
 
 /// <summary>
@@ -63,7 +69,9 @@ public static class WikidataResponseParser
                     Id = entity.Name,
                     ImageFileName = ReadImageFileName(entity.Value),
                     TurkishWikipediaTitle = ReadSitelink(entity.Value, "trwiki"),
-                    EnglishWikipediaTitle = ReadSitelink(entity.Value, "enwiki")
+                    EnglishWikipediaTitle = ReadSitelink(entity.Value, "enwiki"),
+                    TurkishDescription = ReadDescription(entity.Value, "tr"),
+                    EnglishDescription = ReadDescription(entity.Value, "en")
                 };
             }
         }
@@ -101,6 +109,17 @@ public static class WikidataResponseParser
         }
 
         return null;
+    }
+
+    // Wikipedia makalesi olmayan yerler için son çare açıklama kaynağı
+    private static string? ReadDescription(JsonElement entity, string language)
+    {
+        var value = entity
+            .GetPropertyOrNull("descriptions")?
+            .GetPropertyOrNull(language)?
+            .GetPropertyOrNull("value");
+
+        return value is { ValueKind: JsonValueKind.String } ? value.Value.GetString() : null;
     }
 
     private static string? ReadSitelink(JsonElement entity, string wiki)

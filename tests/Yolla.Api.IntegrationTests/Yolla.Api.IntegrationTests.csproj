@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Yolla.Api\Yolla.Api.csproj" />
+    <ProjectReference Include="..\..\src\Yolla.Harvester\Yolla.Harvester.csproj" />
   </ItemGroup>
 
 </Project>

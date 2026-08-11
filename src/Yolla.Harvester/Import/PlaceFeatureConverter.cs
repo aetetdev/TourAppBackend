@@ -23,6 +23,7 @@ public static class PlaceFeatureConverter
     private const int OpeningHoursMaxLength = 250;
     private const int WikidataMaxLength = 32;
     private const int WikipediaMaxLength = 250;
+    private const int CommonsRefMaxLength = 300;
 
     /// <summary>
     /// Kaydı içe aktarılabilir satıra çevirir.
@@ -67,6 +68,7 @@ public static class PlaceFeatureConverter
 
         var nameEn = Clean(feature.GetTag("name:en"), NameMaxLength);
         var wikidataId = CleanWikidataId(feature.GetTag("wikidata"));
+        var commonsRef = CleanCommonsRef(feature.GetTag("wikimedia_commons"));
         var wikipediaTitle = CleanWikipediaTitle(feature.GetTag("wikipedia"));
         var description = Clean(feature.GetTag("description"), 2000);
         var website = CleanWebsite(feature.GetTag("website") ?? feature.GetTag("contact:website"));
@@ -110,6 +112,7 @@ public static class PlaceFeatureConverter
             OpeningHours = openingHours,
             WikidataId = wikidataId,
             WikipediaTitle = wikipediaTitle,
+            CommonsRef = commonsRef,
             DescriptionTr = description,
             QualityScore = score
         });
@@ -202,6 +205,31 @@ public static class PlaceFeatureConverter
         }
 
         return Truncate(trimmed[(separatorIndex + 1)..].Trim(), WikipediaMaxLength);
+    }
+
+    /// <summary>
+    /// OSM'deki wikimedia_commons etiketini doğrular. Yalnızca dosya ("File:X.jpg") ve
+    /// kategori ("Category:Y") referansları işe yarar; diğer değerler yok sayılır.
+    /// </summary>
+    internal static string? CleanCommonsRef(string? value)
+    {
+        var trimmed = value?.Trim();
+
+        if (string.IsNullOrEmpty(trimmed) || trimmed.Length > CommonsRefMaxLength)
+        {
+            return null;
+        }
+
+        var isFile = trimmed.StartsWith("File:", StringComparison.OrdinalIgnoreCase);
+        var isCategory = trimmed.StartsWith("Category:", StringComparison.OrdinalIgnoreCase);
+
+        if (!isFile && !isCategory)
+        {
+            return null;
+        }
+
+        // Alt çizgiler Commons başlıklarında boşluk yerine geçer
+        return trimmed.Replace('_', ' ');
     }
 
     /// <summary>Yalnızca http(s) adreslerini kabul eder.</summary>

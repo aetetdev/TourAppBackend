@@ -72,6 +72,59 @@ public static class WikipediaResponseParser
         return result;
     }
 
+    /// <summary>
+    /// <c>pageimages</c> yanıtından makale başlığı -> Commons dosya adı eşlemesi çıkarır.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ParsePageImages(string? json)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return result;
+        }
+
+        JsonDocument document;
+
+        try
+        {
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            return result;
+        }
+
+        using (document)
+        {
+            var query = document.RootElement.GetPropertyOrNull("query");
+            var pages = query?.GetPropertyOrNull("pages");
+
+            if (pages is not { ValueKind: JsonValueKind.Object })
+            {
+                return result;
+            }
+
+            foreach (var page in pages.Value.EnumerateObject())
+            {
+                var title = page.Value.GetPropertyOrNull("title")?.GetString();
+                var image = page.Value.GetPropertyOrNull("pageimage")?.GetString();
+
+                if (!string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(image))
+                {
+                    result[title] = image;
+                }
+            }
+
+            if (query is not null)
+            {
+                ApplyRedirects(query.Value, result);
+            }
+        }
+
+        return result;
+    }
+
     private static void ApplyRedirects(JsonElement query, Dictionary<string, string> result)
     {
         var redirects = query.GetPropertyOrNull("redirects");

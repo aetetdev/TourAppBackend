@@ -35,6 +35,9 @@ public sealed record PlaceImportRow
     /// <summary>Wikipedia makale başlığı, dil ön eki ayrılmış hali.</summary>
     public string? WikipediaTitle { get; init; }
 
+    /// <summary>OSM'deki wikimedia_commons etiketi: "File:X.jpg" ya da "Category:Y".</summary>
+    public string? CommonsRef { get; init; }
+
     public string? DescriptionTr { get; init; }
 
     public string? DescriptionEn { get; init; }

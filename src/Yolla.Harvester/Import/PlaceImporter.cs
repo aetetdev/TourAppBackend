@@ -89,6 +89,7 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
                 opening_hours    text,
                 wikidata_id      text,
                 wikipedia_title  text,
+                commons_ref      text,
                 description_tr   text,
                 description_en   text,
                 quality_score    smallint NOT NULL
@@ -108,7 +109,8 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
             COPY staging_places (
                 osm_type, osm_id, name, name_en, slug, category_key,
                 longitude, latitude, address, website, opening_hours,
-                wikidata_id, wikipedia_title, description_tr, description_en, quality_score
+                wikidata_id, wikipedia_title, commons_ref,
+                description_tr, description_en, quality_score
             ) FROM STDIN (FORMAT BINARY)
             """;
 
@@ -131,6 +133,7 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
             await WriteNullableAsync(writer, row.OpeningHours, cancellationToken);
             await WriteNullableAsync(writer, row.WikidataId, cancellationToken);
             await WriteNullableAsync(writer, row.WikipediaTitle, cancellationToken);
+            await WriteNullableAsync(writer, row.CommonsRef, cancellationToken);
             await WriteNullableAsync(writer, row.DescriptionTr, cancellationToken);
             await WriteNullableAsync(writer, row.DescriptionEn, cancellationToken);
             await writer.WriteAsync(row.QualityScore, NpgsqlDbType.Smallint, cancellationToken);
@@ -176,7 +179,7 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
                     country_id, city_id, district_id, category_id,
                     osm_type, osm_id, name, name_en, slug, location,
                     address, website, opening_hours,
-                    wikidata_id, wikipedia_title, description_tr, description_en,
+                    wikidata_id, wikipedia_title, commons_ref, description_tr, description_en,
                     quality_score, is_active, created_at
                 )
                 SELECT
@@ -184,7 +187,7 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
                     m.osm_type, m.osm_id, m.name, m.name_en, m.slug,
                     ST_SetSRID(ST_MakePoint(m.longitude, m.latitude), 4326)::geography,
                     m.address, m.website, m.opening_hours,
-                    m.wikidata_id, m.wikipedia_title, m.description_tr, m.description_en,
+                    m.wikidata_id, m.wikipedia_title, m.commons_ref, m.description_tr, m.description_en,
                     LEAST(100, m.quality_score + COALESCE(m.category_weight, 0))::smallint,
                     true, now()
                 FROM matched m
@@ -199,10 +202,13 @@ public sealed class PlaceImporter(NpgsqlDataSource dataSource)
                     address         = EXCLUDED.address,
                     website         = EXCLUDED.website,
                     opening_hours   = EXCLUDED.opening_hours,
-                    wikidata_id     = EXCLUDED.wikidata_id,
-                    wikipedia_title = EXCLUDED.wikipedia_title,
-                    description_tr  = EXCLUDED.description_tr,
-                    description_en  = EXCLUDED.description_en,
+                    wikidata_id     = COALESCE(EXCLUDED.wikidata_id, places.wikidata_id),
+                    wikipedia_title = COALESCE(EXCLUDED.wikipedia_title, places.wikipedia_title),
+                    commons_ref     = COALESCE(EXCLUDED.commons_ref, places.commons_ref),
+                    -- Zenginleştirmeden gelen açıklama (Wikipedia özeti) OSM'deki kısa
+                    -- description etiketinden değerli; yeniden içe aktarma onu ezmemeli
+                    description_tr  = COALESCE(places.description_tr, EXCLUDED.description_tr),
+                    description_en  = COALESCE(places.description_en, EXCLUDED.description_en),
                     -- Zenginleştirme sonrası fotoğraf puanı eklenmiş olabilir; düşürmüyoruz
                     quality_score   = GREATEST(places.quality_score, EXCLUDED.quality_score),
                     updated_at      = now()

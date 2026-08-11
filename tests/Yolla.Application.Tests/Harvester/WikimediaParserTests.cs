@@ -152,6 +152,34 @@ public class CommonsResponseParserTests
     }
 
     [Fact]
+    public void Kategori_uyeleri_cozulur()
+    {
+        // OSM etiketi çoğunlukla dosyayı değil kategoriyi gösterir
+        const string json = """
+            {"query":{"categorymembers":[
+                {"title":"File:Kaymakli 1.jpg"},
+                {"title":"File:Kaymakli 2.png"},
+                {"title":"File:Kaymakli sesli anlatim.ogg"},
+                {"title":"Category:Alt kategori"}
+            ]}}
+            """;
+
+        var files = CommonsResponseParser.ParseCategoryMembers(json);
+
+        // Ses dosyası ve alt kategori elenmeli
+        files.ShouldBe(["File:Kaymakli 1.jpg", "File:Kaymakli 2.png"]);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("bozuk {")]
+    [InlineData("{}")]
+    public void Gecersiz_kategori_yaniti_bos_liste_dondurur(string? json)
+    {
+        CommonsResponseParser.ParseCategoryMembers(json).ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Wikidata_dosya_adi_commons_basligina_cevrilir()
     {
         CommonsClient.NormalizeFileTitle("Ayasofya.jpg").ShouldBe("File:Ayasofya.jpg");
@@ -250,5 +278,70 @@ public class WikipediaResponseParserTests
     public void Ozetteki_fazla_bosluklar_sadelesir()
     {
         WikipediaResponseParser.Shorten("Bir\n\nİki   Üç", 600).ShouldBe("Bir İki Üç");
+    }
+
+    // --- Makalenin öne çıkan görseli ---
+
+    [Fact]
+    public void Sayfa_gorseli_cozulur()
+    {
+        const string json = """
+            {"query":{"pages":{"1":{"title":"Uçhisar Kalesi","pageimage":"Uchisar Castle.jpg"}}}}
+            """;
+
+        WikipediaResponseParser.ParsePageImages(json)["Uçhisar Kalesi"]
+            .ShouldBe("Uchisar Castle.jpg");
+    }
+
+    [Fact]
+    public void Gorseli_olmayan_makale_atlanir()
+    {
+        const string json = """{"query":{"pages":{"1":{"title":"Test"}}}}""";
+
+        WikipediaResponseParser.ParsePageImages(json).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Sayfa_gorselinde_de_yonlendirme_izlenir()
+    {
+        const string json = """
+            {"query":{
+                "redirects":[{"from":"Uçhisar Kale","to":"Uçhisar Kalesi"}],
+                "pages":{"1":{"title":"Uçhisar Kalesi","pageimage":"Uchisar.jpg"}}
+            }}
+            """;
+
+        WikipediaResponseParser.ParsePageImages(json)["Uçhisar Kale"].ShouldBe("Uchisar.jpg");
+    }
+}
+
+public class WikidataDescriptionTests
+{
+    [Fact]
+    public void Kisa_tanim_cozulur()
+    {
+        // Wikipedia makalesi olmayan yerler için son çare açıklama kaynağı
+        const string json = """
+            {"entities":{"Q1":{"claims":{},"descriptions":{
+                "tr":{"language":"tr","value":"Türkiye'de tarihi yapı"},
+                "en":{"language":"en","value":"historic building in Türkiye"}
+            }}}}
+            """;
+
+        var entity = WikidataResponseParser.Parse(json)["Q1"];
+
+        entity.TurkishDescription.ShouldBe("Türkiye'de tarihi yapı");
+        entity.EnglishDescription.ShouldBe("historic building in Türkiye");
+    }
+
+    [Fact]
+    public void Tanimi_olmayan_kayitta_null_kalir()
+    {
+        const string json = """{"entities":{"Q1":{"claims":{}}}}""";
+
+        var entity = WikidataResponseParser.Parse(json)["Q1"];
+
+        entity.TurkishDescription.ShouldBeNull();
+        entity.EnglishDescription.ShouldBeNull();
     }
 }

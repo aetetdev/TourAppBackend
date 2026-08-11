@@ -12,9 +12,16 @@ public static class EnrichCommand
     {
         var options = new CommandLineArgs(args);
 
-        var limit = int.TryParse(options.GetValue("limit"), out var parsedLimit) ? parsedLimit : (int?)null;
-        var refreshExisting = options.HasFlag("refresh");
         var delayMs = int.TryParse(options.GetValue("delay"), out var parsedDelay) ? parsedDelay : 150;
+
+        var enrichmentOptions = new EnrichmentOptions
+        {
+            Limit = int.TryParse(options.GetValue("limit"), out var parsedLimit) ? parsedLimit : null,
+            RefreshExisting = options.HasFlag("refresh"),
+            UseGeoSearch = options.HasFlag("geosearch"),
+            GeoSearchRadiusMeters = int.TryParse(options.GetValue("radius"), out var radius) ? radius : 150,
+            MinQualityScore = int.TryParse(options.GetValue("min-score"), out var minScore) ? minScore : 0
+        };
 
         await using var dataSource = HarvesterConnection.CreateDataSource(options.GetValue("connection"));
 
@@ -26,11 +33,20 @@ public static class EnrichCommand
             new CommonsClient(httpClient),
             new WikipediaClient(httpClient));
 
-        Console.WriteLine("Zenginleştirme başlıyor (Wikidata -> Commons fotoğraf + lisans, Wikipedia özet)...");
+        Console.WriteLine("Zenginleştirme başlıyor.");
+        Console.WriteLine("  Fotoğraf kaynakları: Wikidata P18 -> OSM commons etiketi "
+                          + "-> Wikipedia öne çıkan görsel"
+                          + (enrichmentOptions.UseGeoSearch ? " -> koordinat araması" : string.Empty));
 
-        if (refreshExisting)
+        if (enrichmentOptions.RefreshExisting)
         {
             Console.WriteLine("  --refresh: fotoğrafı olan kayıtlar da yeniden çekilecek.");
+        }
+
+        if (enrichmentOptions.UseGeoSearch)
+        {
+            Console.WriteLine($"  --geosearch: {enrichmentOptions.GeoSearchRadiusMeters} m yarıçapta "
+                              + "fotoğraf aranacak (isabet garantisi yok, yavaş).");
         }
 
         var stopwatch = Stopwatch.StartNew();
@@ -52,7 +68,7 @@ public static class EnrichCommand
                               + $"- {p.PhotosFound:N0} fotoğraf bulundu");
         });
 
-        var result = await enricher.EnrichAsync(limit, refreshExisting, progress, cancellationToken);
+        var result = await enricher.EnrichAsync(enrichmentOptions, progress, cancellationToken);
 
         stopwatch.Stop();
 
@@ -60,6 +76,9 @@ public static class EnrichCommand
         Console.WriteLine($"  Aday kayıt            {result.Total,10:N0}");
         Console.WriteLine($"  İşlenen               {result.Processed,10:N0}");
         Console.WriteLine($"  Fotoğraf bulundu      {result.PhotosFound,10:N0}");
+        Console.WriteLine($"    Commons kategorisi  {result.FromCommonsCategory,10:N0}");
+        Console.WriteLine($"    Wikipedia görseli   {result.FromPageImage,10:N0}");
+        Console.WriteLine($"    koordinat araması   {result.FromGeoSearch,10:N0}");
         Console.WriteLine($"  Açıklama eklendi      {result.DescriptionsFound,10:N0}");
         Console.WriteLine();
         Console.WriteLine($"  Süre: {stopwatch.Elapsed.TotalMinutes:N1} dk");

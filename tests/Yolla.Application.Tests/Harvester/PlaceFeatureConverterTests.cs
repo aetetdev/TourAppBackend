@@ -210,6 +210,29 @@ public class PlaceFeatureConverterTests
         PlaceFeatureConverter.Convert(feature).Row!.Website.ShouldBe("https://muze.gov.tr");
     }
 
+    // --- Commons referansı ---
+
+    [Theory]
+    [InlineData("Category:Underground City of Kaymaklı", "Category:Underground City of Kaymaklı")]
+    [InlineData("File:Duden.jpg", "File:Duden.jpg")]
+    [InlineData("Category:Cape_Helles", "Category:Cape Helles")]
+    public void Osm_commons_etiketi_okunur(string tagValue, string expected)
+    {
+        var feature = Feature(("historic", "castle"), ("name", "Test"), ("wikimedia_commons", tagValue));
+
+        PlaceFeatureConverter.Convert(feature).Row!.CommonsRef.ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData("Ayasofya")]
+    [InlineData("https://commons.wikimedia.org/wiki/File:X.jpg")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Gecersiz_commons_referansi_reddedilir(string? value)
+    {
+        PlaceFeatureConverter.CleanCommonsRef(value).ShouldBeNull();
+    }
+
     // --- Uzunluk sınırları ---
 
     [Fact]

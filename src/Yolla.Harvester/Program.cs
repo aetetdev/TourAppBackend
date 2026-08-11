@@ -86,11 +86,16 @@ public static class Program
                 --file <dosya>           Varsayılan: data/poi.geojsonl
                 --include-hidden         Otel, turizm bürosu ve kamp alanlarını da aktarır.
 
-              enrich                     Wikidata kimliği olan yerlere Commons'tan fotoğraf
-                                         (fotoğrafçı ve lisans bilgisiyle) ve Wikipedia'dan
-                                         özet ekler, kalite puanını yeniden hesaplar.
+              enrich                     Yerlere fotoğraf (fotoğrafçı ve lisans bilgisiyle)
+                                         ve açıklama ekler, kalite puanını yeniden hesaplar.
+                                         Fotoğraf sırayla şu kaynaklarda aranır:
+                                         Wikidata P18, OSM commons etiketi, Wikipedia görseli.
                 --limit <sayı>           Yalnızca ilk N kaydı işler (deneme için).
                 --refresh                Fotoğrafı olan kayıtları da yeniden çeker.
+                --geosearch              Hiçbir kaynağa bağlı olmayan kayıtlar için koordinat
+                                         çevresinde fotoğraf arar. İsabet garantisi yok, yavaş.
+                --radius <metre>         Koordinat araması yarıçapı. Varsayılan: 150
+                --min-score <sayı>       Bu puanın altındaki kayıtları atlar.
                 --delay <ms>             İstekler arası bekleme. Varsayılan: 150
 
             ORTAK SEÇENEKLER
