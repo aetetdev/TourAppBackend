@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: yolla-postgres
+    environment:
+      POSTGRES_DB: yolla
+      POSTGRES_USER: yolla
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yolla_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - yolla-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yolla -d yolla"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: yolla-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - yolla-redisdata:/data
+
+  # OSM ham verisini filtreleyip GeoJSONSeq'e çeviren araç kutusu.
+  # Sürekli çalışmaz; "tools" profili altında olduğu için sadece elle çağrılır:
+  #   docker compose run --rm osmium tags-filter ...
+  osmium:
+    build: ./docker/osmium
+    image: yolla-osmium
+    container_name: yolla-osmium
+    profiles: ["tools"]
+    volumes:
+      - ./data:/data
+
+  # --- OSRM ---
+  # Ilk calistirmadan once Turkiye verisi indirilip hazirlanmali (bkz. docs/osrm-setup.md).
+  # Ayni .osrm dosyalari iki profil icin ayri klasorlerde uretilir.
+
+  osrm-car:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: yolla-osrm-car
+    command: osrm-routed --algorithm mld /data/turkey-latest.osrm
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./osrm/car:/data
+    restart: unless-stopped
+
+  osrm-foot:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: yolla-osrm-foot
+    command: osrm-routed --algorithm mld /data/turkey-latest.osrm
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./osrm/foot:/data
+    restart: unless-stopped
+
+volumes:
+  yolla-pgdata:
+  yolla-redisdata:

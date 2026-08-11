@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>67cc57cd-ec26-4b27-9c48-d86941d1f441</UserSecretsId>
+    <!-- XML yorumları OpenAPI belgesine aktarılır; Scalar arayüzünde açıklama olarak görünür -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <!-- Transitive gelen Microsoft.OpenApi 2.0.0'da GHSA-v5pm-xwqc-g5wc açığı var; 2.x serisinin yamalı sürümüne sabitliyoruz -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.11.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.18" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Yolla.Infrastructure\Yolla.Infrastructure.csproj" />
+    <ProjectReference Include="..\Yolla.Application\Yolla.Application.csproj" />
+  </ItemGroup>
+
+</Project>

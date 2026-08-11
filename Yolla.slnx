@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Yolla.Api/Yolla.Api.csproj" />
+    <Project Path="src/Yolla.Application/Yolla.Application.csproj" />
+    <Project Path="src/Yolla.Domain/Yolla.Domain.csproj" />
+    <Project Path="src/Yolla.Harvester/Yolla.Harvester.csproj" />
+    <Project Path="src/Yolla.Infrastructure/Yolla.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Yolla.Api.IntegrationTests/Yolla.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Yolla.Application.Tests/Yolla.Application.Tests.csproj" />
+  </Folder>
+</Solution>
