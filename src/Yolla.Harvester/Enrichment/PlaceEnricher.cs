@@ -271,10 +271,13 @@ public sealed class PlaceEnricher(
             candidate.Longitude,
             candidate.Latitude,
             options.GeoSearchRadiusMeters,
-            limit: 3,
+            limit: 5,
             cancellationToken);
 
-        return nearby.Values.FirstOrDefault();
+        // Yakınlık tek başına yetmez: dosya adı yer adıyla örtüşmeyen fotoğraflar
+        // büyük çoğunlukla başka bir yeri gösteriyor
+        return nearby.Values.FirstOrDefault(photo =>
+            PhotoRelevanceFilter.IsLikelyRelevant(candidate.Name, photo.FileTitle));
     }
 
     private async Task<Dictionary<string, CommonsPhoto>> LoadPhotosAsync(
