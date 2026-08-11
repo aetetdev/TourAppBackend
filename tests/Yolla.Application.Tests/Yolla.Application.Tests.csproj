@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\Yolla.Application\Yolla.Application.csproj" />
     <ProjectReference Include="..\..\src\Yolla.Domain\Yolla.Domain.csproj" />
     <ProjectReference Include="..\..\src\Yolla.Harvester\Yolla.Harvester.csproj" />
+    <ProjectReference Include="..\..\src\Yolla.Infrastructure\Yolla.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

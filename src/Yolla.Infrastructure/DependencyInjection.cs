@@ -7,7 +7,9 @@ using StackExchange.Redis;
 using Yolla.Application.Auth;
 using Yolla.Application.Discovery;
 using Yolla.Application.Geo;
+using Yolla.Application.Routing;
 using Yolla.Infrastructure.Auth;
+using Yolla.Infrastructure.Routing;
 using Yolla.Infrastructure.Identity;
 using Yolla.Infrastructure.Persistence;
 using Yolla.Infrastructure.Services;
@@ -72,6 +74,18 @@ public static class DependencyInjection
         services.AddScoped<IDiscoveryService, DiscoveryService>();
         services.AddScoped<IDeviceSessionService, DeviceSessionService>();
         services.AddScoped<ISwipeService, SwipeService>();
+        services.AddScoped<IRouteService, RouteService>();
+
+        services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
+
+        // Rota motoru istemcisi havuzdan yönetilir; her istekte yeni bağlantı açmak
+        // soket tükenmesine yol açar
+        services.AddHttpClient<IRoutingClient, OsrmClient>((provider, client) =>
+        {
+            var osrm = configuration.GetSection(OsrmOptions.SectionName).Get<OsrmOptions>() ?? new OsrmOptions();
+
+            client.Timeout = TimeSpan.FromSeconds(osrm.TimeoutSeconds);
+        });
 
         services.AddJwtAuthentication(configuration, environmentName);
 
