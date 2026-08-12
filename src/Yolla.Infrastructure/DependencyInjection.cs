@@ -65,9 +65,21 @@ public static class DependencyInjection
 
         services.AddIdentityCore<ApplicationUser>(options =>
             {
+                // Karmaşıklık kuralları yerine uzunluk: NIST SP 800-63B'nin önerdiği yaklaşım.
+                // "Büyük harf + rakam + özel karakter" zorunluluğu kullanıcıyı tahmin edilebilir
+                // kalıplara itiyor (Sifre1! gibi) ve gerçek güvenliğe katkısı tartışmalı.
                 options.Password.RequiredLength = 8;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireLowercase = false;
+                options.Password.RequireDigit = false;
+
                 options.User.RequireUniqueEmail = true;
                 options.SignIn.RequireConfirmedEmail = false;
+
+                // Şifre deneme saldırılarına karşı hesap kilidi
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.Lockout.MaxFailedAccessAttempts = 10;
             })
             .AddRoles<IdentityRole<int>>()
             .AddEntityFrameworkStores<YollaDbContext>()
@@ -81,6 +93,7 @@ public static class DependencyInjection
         services.AddScoped<IPlaceService, PlaceService>();
         services.AddScoped<IContentService, ContentService>();
         services.AddScoped<ITripService, TripService>();
+        services.AddScoped<IAccountService, AccountService>();
 
         services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
 

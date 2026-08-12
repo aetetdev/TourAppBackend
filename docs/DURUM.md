@@ -55,13 +55,13 @@ gezi planı ve her iki rota modu uçtan uca çalışıyor.
 
 ## Sırada (öncelik sırasıyla)
 
-### 1. Kullanıcı hesabı  ← şu an burada
-- Kayıt, giriş, jeton yenileme
-- Cihazı hesaba bağlama (anonim geçmiş korunur)
-- **Hesap silme** (App Store zorunluluğu)
-- Şifre sıfırlama
+### 1. Kullanıcı hesabı ✅ bitti
+- Kayıt, giriş, hesap bilgisi, şifre değiştirme
+- Cihazı hesaba bağlama: anonim planlar ve kaydırmalar korunuyor
+- Hesap silme (App Store zorunluluğu); tüm kişisel veri birlikte siliniyor
+- Kalan: şifre sıfırlama (e-posta gönderimi altyapısı gerekiyor)
 
-### 2. Deploy altyapısı
+### 2. Deploy altyapısı  ← şu an burada
 - API için Dockerfile
 - GitHub Actions ile derleme ve test
 - Sunucu kurulumu, ortam değişkenleri

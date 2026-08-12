@@ -77,6 +77,14 @@ builder.Services.AddRateLimiter(options =>
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
     });
+
+    // Kimlik doğrulama en dar sınırda: şifre deneme saldırılarını yavaşlatır
+    options.AddFixedWindowLimiter("auth", limiter =>
+    {
+        limiter.PermitLimit = 10;
+        limiter.Window = TimeSpan.FromMinutes(5);
+        limiter.QueueLimit = 0;
+    });
 });
 
 var app = builder.Build();

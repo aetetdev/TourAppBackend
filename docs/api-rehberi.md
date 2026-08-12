@@ -192,6 +192,42 @@ Beğenilenler: `GET /api/v1/discovery/swipes/liked`
 
 ---
 
+## 4b. Kullanıcı hesabı (isteğe bağlı)
+
+Hesap **zorunlu değildir**; uygulama cihaz oturumuyla tam çalışır. Hesabın tek işlevi
+verileri cihazlar arasında taşımak.
+
+```http
+POST /api/v1/account/register
+{
+  "email": "gezgin@example.com",
+  "password": "en-az-8-karakter",
+  "displayName": "Eren",
+  "deviceUuid": "8f14e45f-ea4a-4f6b-9d3c-2a1b7c9e5d20"
+}
+```
+
+**`deviceUuid` göndermek önemli:** o cihazda anonim olarak oluşturulmuş planlar ve
+kaydırmalar hesaba bağlanır, kullanıcı hiçbir şey kaybetmez. Dönen jeton cihaz
+jetonunun yerini alır ve aynı biçimde kullanılır.
+
+| İşlem | Uç |
+|---|---|
+| Giriş | `POST /api/v1/account/login` (aynı şekilde `deviceUuid` alır) |
+| Hesap bilgisi | `GET /api/v1/account/me` |
+| Şifre değiştir | `POST /api/v1/account/change-password` |
+| **Hesap sil** | `POST /api/v1/account/delete` → `{ "password": "..." }` |
+
+> **Hesap silme ekranı zorunlu.** Uygulama mağazaları, hesap açtıran uygulamaların
+> silme seçeneğini de sunmasını şart koşuyor. İşlem geri alınamaz: planlar,
+> kaydırmalar ve cihaz kayıtları birlikte silinir.
+
+Şifre kuralı: en az 8 karakter. Karmaşıklık zorunluluğu yok.
+
+Kimlik doğrulama uçlarında hız sınırı daha dardır: **5 dakikada 10 istek**.
+
+---
+
 ## 5. Yer detayı
 
 ```http
