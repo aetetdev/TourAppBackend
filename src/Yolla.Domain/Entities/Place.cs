@@ -85,4 +85,7 @@ public class Place : BaseEntity
     public bool IsActive { get; set; } = true;
 
     public ICollection<PlaceTranslation> Translations { get; set; } = [];
+
+    /// <summary>Elle eklenen içerikler; otomatik kaynaklardan gelenin üzerine geçer.</summary>
+    public ICollection<PlaceContribution> Contributions { get; set; } = [];
 }

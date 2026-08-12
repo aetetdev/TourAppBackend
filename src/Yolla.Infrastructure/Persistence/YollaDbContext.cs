@@ -20,6 +20,7 @@ public class YollaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<in
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Place> Places => Set<Place>();
     public DbSet<PlaceTranslation> PlaceTranslations => Set<PlaceTranslation>();
+    public DbSet<PlaceContribution> PlaceContributions => Set<PlaceContribution>();
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<TripPlace> TripPlaces => Set<TripPlace>();

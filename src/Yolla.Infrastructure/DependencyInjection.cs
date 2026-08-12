@@ -6,8 +6,11 @@ using Microsoft.Extensions.Hosting;
 using StackExchange.Redis;
 using Yolla.Application.Auth;
 using Yolla.Application.Discovery;
+using Yolla.Application.Content;
 using Yolla.Application.Geo;
+using Yolla.Application.Places;
 using Yolla.Application.Routing;
+using Yolla.Application.Trips;
 using Yolla.Infrastructure.Auth;
 using Yolla.Infrastructure.Routing;
 using Yolla.Infrastructure.Identity;
@@ -75,6 +78,9 @@ public static class DependencyInjection
         services.AddScoped<IDeviceSessionService, DeviceSessionService>();
         services.AddScoped<ISwipeService, SwipeService>();
         services.AddScoped<IRouteService, RouteService>();
+        services.AddScoped<IPlaceService, PlaceService>();
+        services.AddScoped<IContentService, ContentService>();
+        services.AddScoped<ITripService, TripService>();
 
         services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
 

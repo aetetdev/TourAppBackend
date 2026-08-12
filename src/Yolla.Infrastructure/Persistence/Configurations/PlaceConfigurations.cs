@@ -80,6 +80,28 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
     }
 }
 
+public class PlaceContributionConfiguration : IEntityTypeConfiguration<PlaceContribution>
+{
+    public void Configure(EntityTypeBuilder<PlaceContribution> builder)
+    {
+        builder.Property(x => x.Value).HasMaxLength(4000).IsRequired();
+        builder.Property(x => x.Language).HasMaxLength(5).IsRequired();
+        builder.Property(x => x.Author).HasMaxLength(250);
+        builder.Property(x => x.License).HasMaxLength(120);
+        builder.Property(x => x.SourceUrl).HasMaxLength(1000);
+        builder.Property(x => x.SubmittedBy).HasMaxLength(120);
+        builder.Property(x => x.Note).HasMaxLength(500);
+
+        // Bir yerin her tür ve dilde tek yayınlanmış katkısı olur
+        builder.HasIndex(x => new { x.PlaceId, x.Type, x.Language });
+
+        builder.HasOne(x => x.Place)
+            .WithMany(x => x.Contributions)
+            .HasForeignKey(x => x.PlaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class PlaceTranslationConfiguration : IEntityTypeConfiguration<PlaceTranslation>
 {
     public void Configure(EntityTypeBuilder<PlaceTranslation> builder)

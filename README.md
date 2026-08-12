@@ -13,6 +13,25 @@ Veri kapsamı Türkiye ile başlıyor; şema ve kod ilk günden çok ülkeli tas
 
 ---
 
+## API uçları
+
+| Uç | İşlev |
+|---|---|
+| `POST /api/v1/devices/register` | Cihaz oturumu ve jeton (hesap gerekmez) |
+| `GET /api/v1/geo/countries` · `/cities` | Ülke ve şehir listesi, arama |
+| `GET /api/v1/discovery/city/{id}/feed` | Kart destesi |
+| `POST /api/v1/discovery/swipes` | Kart kaydırma kaydı |
+| `GET /api/v1/discovery/swipes/liked` | Beğenilen yerler |
+| `GET /api/v1/places/{id}` · `/by-slug/{sehir}/{yer}` | Yer detayı |
+| `GET /api/v1/places/nearby` | Yakındaki yerler |
+| `POST /api/v1/routes/optimize` | En kısa gezi rotası (gezgin satıcı) |
+| `POST /api/v1/routes/corridor` | İki şehir arası yol üstü keşif |
+| `GET/POST/PATCH/DELETE /api/v1/trips` | Gezi planları |
+| `POST /api/v1/trips/{id}/optimize` | Planın rotasını hesapla ve kaydet |
+| `GET/POST /api/v1/content/...` | İçerik girişi (yönetim anahtarı gerekli) |
+
+Tüm uçlar `http://localhost:5088/scalar/v1` adresinde açıklama ve örneklerle listelenir.
+
 ## Mimari
 
 ```
