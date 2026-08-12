@@ -47,22 +47,45 @@ builder.Services.AddHttpClient<OsrmHealthCheck>(client =>
     client.Timeout = TimeSpan.FromSeconds(5));
 
 // --- CORS ---
+// Web istemcisi tarayıcıda çalıştığı için bu ayar olmadan hiçbir istek geçmez.
 // İzin verilen adresler yapılandırmadan gelir; joker karakter kullanılmaz.
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var allowedOrigins = (builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+    // Tanımsız ortam değişkeni boş dizge olarak geliyor; süzülmezse "izin verilen adres
+    // var" sanılır ve hiçbir istek geçmez
+    .Where(x => !string.IsNullOrWhiteSpace(x))
+    // Tarayıcı Origin başlığını sondaki eğik çizgi olmadan gönderir; adresin sonunda
+    // kalan bir "/" eşleşmeyi sessizce bozar
+    .Select(x => x.Trim().TrimEnd('/'))
+    .ToArray();
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
+        policy.AllowAnyHeader()
+            .AllowAnyMethod()
+            // Ön kontrol (preflight) yanıtı bir saat önbelleklenir: her istekten önce
+            // ikinci bir gidiş dönüş yapmak mobil bağlantıda gözle görülür gecikme
+            .SetPreflightMaxAge(TimeSpan.FromHours(1));
+
         if (allowedOrigins.Length > 0)
         {
-            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+            policy.WithOrigins(allowedOrigins).AllowCredentials();
+            return;
         }
-        else
+
+        if (builder.Environment.IsDevelopment())
         {
-            // Geliştirme ortamında kimlik bilgisi taşımayan isteklere izin verilir
-            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+            // Geliştirmede web istemcisinin portu her çalıştırmada değişiyor
+            // (`flutter run -d chrome` rastgele port seçer). Adresleri tek tek yazmak
+            // yerine tüm yerel adreslere izin veriliyor; dışarıya açık değil.
+            policy.SetIsOriginAllowed(IsLocalOrigin).AllowCredentials();
+            return;
         }
+
+        // Üretimde yapılandırma eksikse hiçbir kaynağa izin verilmez. Eskiden burada
+        // tüm kaynaklara açılıyordu; eksik yapılandırmanın sessizce en gevşek ayara
+        // düşmesi yanlış yönde bir varsayılan.
     });
 });
 
@@ -103,6 +126,14 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// Eksik CORS ayarı tarayıcıda anlaşılması güç hatalara yol açıyor; başlangıçta söylenir
+if (allowedOrigins.Length == 0 && !app.Environment.IsDevelopment())
+{
+    app.Logger.LogWarning(
+        "Cors:AllowedOrigins tanımlı değil. Web istemcisi API'ye erişemez. " +
+        "Cors__AllowedOrigins__0 ortam değişkeniyle web adresi verilmeli.");
+}
 
 // Hata yönetimi en dışta: sonraki katmanların hatalarını da yakalamalı
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -155,6 +186,11 @@ app.MapHealthChecks("/health/detay", new HealthCheckOptions
 });
 
 app.Run();
+
+// Adresin yerel makineye ait olup olmadığı; yalnızca geliştirmede kullanılır.
+static bool IsLocalOrigin(string origin) =>
+    Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+    && (uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
 
 /// <summary>Entegrasyon testlerinin uygulamayı ayağa kaldırabilmesi için görünür kılınır.</summary>
 public partial class Program;

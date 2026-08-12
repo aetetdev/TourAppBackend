@@ -111,6 +111,35 @@ public sealed class DiscoveryController(
         return Ok(ApiResponse<SwipeResultDto>.Create(result));
     }
 
+    /// <summary>Bir kaydırmayı geri alır.</summary>
+    /// <remarks>
+    /// Kullanıcı yanlışlıkla kaydırdığında dönüş yolu: kayıt silinir ve yer kart
+    /// destesine geri döner. Beğeniyse beğeni listesinden de çıkar.
+    ///
+    /// Kayıt bulunamazsa hata dönmez, <c>removed: false</c> ile başarılı yanıt verilir.
+    /// Kaydırmalar toplu gönderildiği için istemci, henüz gönderilmemiş bir kaydırma
+    /// için de bu ucu çağırabilir; bunu hata saymak istemciyi 404'ü başarı gibi ele
+    /// almaya zorlardı.
+    ///
+    /// Yalnızca yön değiştirmek için bu uca gerek yok: aynı yeri farklı yönle tekrar
+    /// göndermek kaydı günceller.
+    /// </remarks>
+    /// <param name="placeId">Kaydırması geri alınacak yerin kimliği.</param>
+    /// <response code="200">Kaydın silinip silinmediği ve güncel beğeni sayısı.</response>
+    /// <response code="401">Cihaz jetonu gerekli.</response>
+    [HttpDelete("swipes/{placeId:int}")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<SwipeUndoResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UndoSwipe(
+        int placeId,
+        CancellationToken cancellationToken)
+    {
+        var result = await swipeService.UndoAsync(User.GetDeviceId(), placeId, cancellationToken);
+
+        return Ok(ApiResponse<SwipeUndoResultDto>.Create(result));
+    }
+
     /// <summary>Cihazın beğendiği yerleri döndürür.</summary>
     /// <remarks>
     /// Kullanıcının sağa kaydırdığı yerler, en son beğenilen başta olacak şekilde.

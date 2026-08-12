@@ -22,7 +22,7 @@ Ek olarak:
 | `Osrm__CarBaseUrl` | `http://localhost:5000` | Araç rota motoru |
 | `Osrm__FootBaseUrl` | `http://localhost:5001` | Yürüme rota motoru |
 | `Admin__ApiKey` | — | Verilmezse içerik yönetimi uçları tamamen kapalı |
-| `Cors__AllowedOrigins__0` | — | Web istemcisinin adresi. Verilmezse tüm kaynaklara açık (yalnızca geliştirme için uygun) |
+| `Cors__AllowedOrigins__0` | — | Web istemcisinin adresi, örn. `https://yolla.travel`. **Verilmezse tarayıcıdan hiçbir istek geçmez**; başlangıçta uyarı loglanır. Birden fazla adres için `__1`, `__2`. Compose kullanılıyorsa `.env` içindeki `WEB_ORIGIN` |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | |
 
 Anahtar üretmek için:
@@ -56,6 +56,7 @@ cat > .env <<'EOF'
 POSTGRES_PASSWORD=uzun-ve-rastgele-bir-sifre
 JWT_KEY=en-az-32-karakterlik-rastgele-anahtar
 ADMIN_API_KEY=icerik-yonetimi-anahtari
+WEB_ORIGIN=https://yolla.travel
 EOF
 
 docker compose --profile app up -d
@@ -132,8 +133,8 @@ Hazırlık **en az 9 GB kullanılabilir bellek** ister. Yetersizse işlem hata v
 `.github/workflows/ci.yml` her push ve pull request'te:
 
 1. Derleme
-2. Birim testler (303)
-3. Entegrasyon testleri (102) — Testcontainers ile gerçek PostGIS
+2. Birim testler (324)
+3. Entegrasyon testleri (115) — Testcontainers ile gerçek PostGIS
 4. Docker görüntüsünün derlenmesi
 
 Kayıt defterine gönderim ve otomatik dağıtım, sunucu belirlendikten sonra eklenecek.
@@ -143,7 +144,7 @@ Kayıt defterine gönderim ve otomatik dağıtım, sunucu belirlendikten sonra e
 ## Yayına almadan önce kontrol listesi
 
 - [ ] `Jwt__Key` ve `POSTGRES_PASSWORD` rastgele üretildi, depoya girmiyor
-- [ ] `Cors__AllowedOrigins` gerçek web adresiyle sınırlandı
+- [ ] `Cors__AllowedOrigins` gerçek web adresiyle verildi — verilmezse web istemcisi çalışmaz
 - [ ] HTTPS sonlandırma yapılandırıldı (ters vekil sunucu ya da yük dengeleyici)
 - [ ] Veritabanı yedeği zamanlandı
 - [ ] `/health` izleniyor

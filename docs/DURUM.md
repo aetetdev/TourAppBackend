@@ -1,6 +1,6 @@
 # Yolla — Proje Durumu
 
-Son güncelleme: 2026-08-11
+Son güncelleme: 2026-08-12
 
 Bu belge backend'in nerede olduğunu ve sırada ne olduğunu tutar. Frontend tarafı buna
 bakarak neyin hazır olduğunu görebilir.
@@ -14,8 +14,8 @@ bakarak neyin hazır olduğunu görebilir.
 | Veri | 54.385 turistik yer, 81 il, 1.001 ilçe |
 | Kart olarak gösterilebilir | 2.898 yer (fotoğraf + açıklama + atıf tam) |
 | Fotoğraflı kayıt | 3.149 |
-| Çalışan API ucu | 20 |
-| Test | 303 birim + 84 entegrasyon, tamamı geçiyor |
+| Çalışan API ucu | 30 |
+| Test | 324 birim + 115 entegrasyon, tamamı geçiyor |
 | Rota motoru | OSRM, araç ve yürüme profilleri hazır (Türkiye) |
 
 **Mobil uygulama yazmaya bugün başlanabilir.** Kart destesi, kaydırma, yer detayı,
@@ -39,7 +39,9 @@ gezi planı ve her iki rota modu uçtan uca çalışıyor.
 - Cihaz oturumu (hesapsız kullanım), JWT
 - Şehir listesi ve arama
 - Kart destesi: kalite sıralı, çeşitlilik kurallı, imleç sayfalamalı
-- Kaydırma kaydı, beğenilenler
+- Kaydırma kaydı, geri alma, beğenilenler
+- Görseller üç boyutta: orijinal + 500 px + 960 px (küçültme sunucuda, Wikimedia'nın
+  standart genişliklerine yuvarlanarak)
 - Yer detayı, kısa adla erişim, yakındakiler
 - Rota optimizasyonu (gezgin satıcı) ve yol koridoru keşfi
 - Gezi planları (oluştur/düzenle/sil, durak yönetimi, rota hesaplama)
@@ -48,7 +50,9 @@ gezi planı ve her iki rota modu uçtan uca çalışıyor.
 ### Altyapı
 - PostgreSQL 17 + PostGIS 3.5, EF Core 10
 - OSRM (araç + yürüme), Docker Compose ile
-- Hız sınırlama, CORS, RFC 7807 hata biçimi
+- Hız sınırlama, RFC 7807 hata biçimi
+- CORS: geliştirmede tüm yerel adresler açık, üretimde yalnızca yapılandırılanlar
+  (eksikse hiçbiri — eskiden herkese açılıyordu)
 - Scalar API dokümantasyonu
 
 ---
@@ -64,7 +68,7 @@ gezi planı ve her iki rota modu uçtan uca çalışıyor.
 ### 2. Deploy altyapısı ✅ bitti
 - Çok aşamalı Dockerfile (~102 MB, kök olmayan kullanıcı)
 - docker-compose'a `app` profilinde api servisi
-- GitHub Actions: derleme + 405 test + görüntü derleme
+- GitHub Actions: derleme + 439 test + görüntü derleme
 - `docs/deploy.md`: ortam değişkenleri, sunucu boyutu, veri aktarımı, kontrol listesi
 - Kalan: gerçek sunucu ve otomatik dağıtım
 

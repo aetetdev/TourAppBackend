@@ -94,6 +94,32 @@ public sealed class SwipeService(YollaDbContext context) : ISwipeService
         };
     }
 
+    public async Task<SwipeUndoResultDto> UndoAsync(
+        int deviceId,
+        int placeId,
+        CancellationToken cancellationToken = default)
+    {
+        var swipe = await context.Swipes
+            .FirstOrDefaultAsync(x => x.DeviceId == deviceId && x.PlaceId == placeId, cancellationToken);
+
+        if (swipe is not null)
+        {
+            // Kayıt silinir, yön değiştirilmez: feed daha önce kaydırılmış her yeri
+            // eliyor. Yerin desteye geri dönmesi ancak kaydın kalkmasıyla olur.
+            context.Swipes.Remove(swipe);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        var totalLiked = await context.Swipes
+            .CountAsync(x => x.DeviceId == deviceId && x.Direction == SwipeDirection.Like, cancellationToken);
+
+        return new SwipeUndoResultDto
+        {
+            Removed = swipe is not null,
+            TotalLiked = totalLiked
+        };
+    }
+
     public async Task<IReadOnlyList<PlaceCardDto>> GetLikedPlacesAsync(
         int deviceId,
         string language = "tr",

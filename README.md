@@ -21,6 +21,7 @@ Veri kapsamı Türkiye ile başlıyor; şema ve kod ilk günden çok ülkeli tas
 | `GET /api/v1/geo/countries` · `/cities` | Ülke ve şehir listesi, arama |
 | `GET /api/v1/discovery/city/{id}/feed` | Kart destesi |
 | `POST /api/v1/discovery/swipes` | Kart kaydırma kaydı |
+| `DELETE /api/v1/discovery/swipes/{placeId}` | Kaydırmayı geri al (yer desteye döner) |
 | `GET /api/v1/discovery/swipes/liked` | Beğenilen yerler |
 | `GET /api/v1/places/{id}` · `/by-slug/{sehir}/{yer}` | Yer detayı |
 | `GET /api/v1/places/nearby` | Yakındaki yerler |

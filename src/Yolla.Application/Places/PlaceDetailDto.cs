@@ -1,3 +1,4 @@
+using Yolla.Application.Common;
 using Yolla.Application.Discovery;
 
 namespace Yolla.Application.Places;
@@ -24,7 +25,14 @@ public sealed record PlaceDetailDto
     /// <summary>Tam açıklama. Kart üzerindeki kısaltılmış metnin uzun hali.</summary>
     public string? Description { get; init; }
 
+    /// <summary>Görselin orijinali. Büyüktür; ekranda küçültülmüş sürümler kullanılmalı.</summary>
     public string? PhotoUrl { get; init; }
+
+    /// <summary>Önizleme için küçültülmüş görsel (500 piksel genişlik).</summary>
+    public string? PhotoThumbUrl => CommonsThumbnail.Thumb(PhotoUrl);
+
+    /// <summary>Detay sayfasının başlık görseli (960 piksel genişlik).</summary>
+    public string? PhotoLargeUrl => CommonsThumbnail.Large(PhotoUrl);
 
     /// <summary>Görselin altında gösterilmesi zorunlu atıf satırı.</summary>
     public string? PhotoAttribution { get; init; }
@@ -79,6 +87,9 @@ public sealed record NearbyPlaceDto
     public required string CategoryName { get; init; }
 
     public string? PhotoUrl { get; init; }
+
+    /// <summary>Liste satırı için küçültülmüş görsel (500 piksel genişlik).</summary>
+    public string? PhotoThumbUrl => CommonsThumbnail.Thumb(PhotoUrl);
 
     /// <summary>Kuş uçuşu mesafe (metre).</summary>
     public required int DistanceMeters { get; init; }

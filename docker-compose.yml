@@ -20,6 +20,9 @@ services:
       # Üretimde bu iki değer mutlaka dışarıdan verilmeli
       Jwt__Key: ${JWT_KEY:?Jwt__Key tanimlanmali}
       Admin__ApiKey: ${ADMIN_API_KEY:-}
+      # Web istemcisinin adresi, örn. https://yolla.travel — verilmezse tarayıcıdan
+      # hiçbir istek geçmez. Yalnızca mobil çalışılıyorsa boş bırakılabilir.
+      Cors__AllowedOrigins__0: ${WEB_ORIGIN:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -36,6 +36,17 @@ public class DiscoveryEndpointTests(PostgisFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Kartlar_kucultulmus_gorsel_adresi_tasir()
+    {
+        // Orijinaller ortalama ~1 MB; istemci küçültme mantığını kendi yazmak zorunda
+        // kalmasın diye adresler sunucuda üretiliyor
+        var page = await GetFeedAsync($"/api/v1/discovery/city/{_cityId}/feed?take=10");
+
+        page.Items.ShouldAllBe(x => x.PhotoThumbUrl.Contains("/thumb/") && x.PhotoThumbUrl.Contains("/500px-"));
+        page.Items.ShouldAllBe(x => x.PhotoLargeUrl.Contains("/960px-"));
+    }
+
+    [Fact]
     public async Task Fotografsiz_yer_kart_olarak_donmez()
     {
         var page = await GetFeedAsync($"/api/v1/discovery/city/{_cityId}/feed?take=50");
@@ -252,7 +263,8 @@ public class DiscoveryEndpointTests(PostgisFixture fixture) : IAsyncLifetime
         Name = name,
         Slug = name.ToLowerInvariant().Replace(' ', '-'),
         Location = Factory.CreatePoint(new Coordinate(101, 1)),
-        PhotoUrl = "https://upload.wikimedia.org/test.jpg",
+        // Gerçek Commons deseni: küçültülmüş adres üretimi ancak bu desenle sınanabilir
+        PhotoUrl = "https://upload.wikimedia.org/wikipedia/commons/f/f0/Test_Yeri.jpg",
         PhotoAuthor = "Test Fotoğrafçı",
         PhotoLicense = "CC BY-SA 4.0",
         DescriptionTr = "Test açıklaması.",
@@ -279,6 +291,8 @@ public class DiscoveryEndpointTests(PostgisFixture fixture) : IAsyncLifetime
         public required string Name { get; init; }
         public required string CategoryKey { get; init; }
         public required string PhotoUrl { get; init; }
+        public required string PhotoThumbUrl { get; init; }
+        public required string PhotoLargeUrl { get; init; }
         public required string PhotoAttribution { get; init; }
         public required short QualityScore { get; init; }
     }

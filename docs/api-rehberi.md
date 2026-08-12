@@ -47,6 +47,11 @@ Doğrulama hatalarında ek olarak `errors` alanı bulunur:
 
 **Hız sınırı:** dakikada 120 istek; rota uçları için ayrıca dakikada 20. Aşılırsa `429` döner.
 
+**Web istemcisi (CORS).** Geliştirmede tüm yerel adreslere (localhost / 127.0.0.1, port
+farkı gözetmeden) izin verilir; `flutter run -d chrome` rastgele port seçtiği için ek
+ayar gerekmez. Üretimde izin verilen adres `Cors__AllowedOrigins__0` ortam değişkeniyle
+verilir — tanımlı değilse tarayıcıdan **hiçbir istek geçmez** (bkz. `docs/deploy.md`).
+
 ---
 
 ## 1. Açılış: cihaz kaydı
@@ -129,7 +134,9 @@ Authorization: Bearer ...
         "categoryKey": "castle",
         "categoryName": "Kale",
         "categoryIcon": "castle",
-        "photoUrl": "https://upload.wikimedia.org/.../Cappadocia.jpg",
+        "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Cappadocia.jpg",
+        "photoThumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Cappadocia.jpg/500px-Cappadocia.jpg",
+        "photoLargeUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Cappadocia.jpg/960px-Cappadocia.jpg",
         "photoAttribution": "Fotoğraf: Brocken Inaglory (CC BY-SA 3.0)",
         "photoSource": "https://commons.wikimedia.org/wiki/File:Cappadocia.jpg",
         "description": "Ürgüp'te kale",
@@ -163,6 +170,28 @@ sayfa gelir.
 
 > Jeton gönderildiğinde daha önce kaydırılmış yerler otomatik olarak elenir.
 
+### Görsel adresleri
+
+Her kart üç adres taşır. **`photoUrl` doğrudan gösterilmemeli** — Commons orijinalidir,
+ortalama ~1 MB.
+
+| Alan | Genişlik | Ölçüm (652 KB'lık örnek) | Nerede |
+|---|---|---|---|
+| `photoThumbUrl` | 500 px | 131 KB | Liste, önizleme, düşük yoğunluklu ekran |
+| `photoLargeUrl` | 960 px | 385 KB | Tam ekran kart, yüksek yoğunluklu ekran |
+| `photoUrl` | orijinal | 652 KB | Yalnızca indirme/paylaşma |
+
+Küçültme sunucuda yapılıyor çünkü Wikimedia yalnızca **standart genişliklere** izin
+veriyor (20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840); listede olmayan bir
+genişlik `400 Bad Request` döner. Liste değişirse tek yerden düzeltilir, istemciler
+aynı mantığı ayrı ayrı taşımaz.
+
+Adres Wikimedia deseniyle uyuşmuyorsa (elle girilmiş fotoğraf, SVG) küçültülmüş alanlar
+orijinalin aynısını taşır; **hiçbir durumda boş gelmez.**
+
+Aynı alanlar yer detayında (`photoThumbUrl`, `photoLargeUrl`), yakındakiler listesinde
+(`photoThumbUrl`) ve plan listesinde (`coverPhotoThumbUrl`) da bulunur.
+
 ---
 
 ## 4. Kaydırma
@@ -189,6 +218,28 @@ Authorization: Bearer ...
 - Aynı yer tekrar gönderilirse yön güncellenir, yeni kayıt açılmaz
 
 Beğenilenler: `GET /api/v1/discovery/swipes/liked`
+
+### Geri alma
+
+Kullanıcı yanlışlıkla kaydırdığında:
+
+```http
+DELETE /api/v1/discovery/swipes/93
+Authorization: Bearer ...
+```
+
+```json
+{ "data": { "removed": true, "totalLiked": 11 } }
+```
+
+Kayıt silinir; yer **kart destesine geri döner**, beğeniyse beğeni listesinden çıkar.
+
+Kayıt bulunamazsa hata dönmez, `removed: false` ile başarılı yanıt verilir. Kaydırmalar
+toplu gönderildiği için istemci, henüz gönderilmemiş bir kaydırma için de bu ucu
+çağırabilir — gönderilip gönderilmediğini takip etmesine gerek yok.
+
+> Yalnızca **yön değiştirmek** için bu uca gerek yok: aynı yeri farklı yönle tekrar
+> göndermek kaydı günceller. Geri alma, yerin desteye dönmesi gerektiğinde kullanılır.
 
 ---
 
@@ -236,6 +287,10 @@ GET /api/v1/places/93
 
 Kart alanlarına ek olarak: `nameEn`, `address`, `website`, `openingHours`,
 `wikipediaUrl`, `directionsUrl`, `citySlug` ve `nearby` (yakındaki 6 yer).
+
+Görsel alanları kartla aynıdır: başlık görseli için `photoLargeUrl`, `nearby`
+satırları için `photoThumbUrl`. Kartın aksine burada hepsi null olabilir — detay
+sayfası fotoğrafsız yerler için de açılır.
 
 `directionsUrl` harita uygulamasında yol tarifi açar — kullanıcı güncel yorumlar ve
 çalışma saatleri için oraya yönlendirilebilir.

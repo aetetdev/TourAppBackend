@@ -1,3 +1,4 @@
+using Yolla.Application.Common;
 using Yolla.Application.Discovery;
 using Yolla.Application.Routing;
 using Yolla.Domain.Enums;
@@ -67,6 +68,9 @@ public sealed record TripSummaryDto
 
     /// <summary>Listede gösterilecek kapak görseli; ilk durağın fotoğrafı.</summary>
     public string? CoverPhotoUrl { get; init; }
+
+    /// <summary>Kapak görselinin küçültülmüşü (500 piksel genişlik).</summary>
+    public string? CoverPhotoThumbUrl => CommonsThumbnail.Thumb(CoverPhotoUrl);
 
     public required DateTimeOffset CreatedAt { get; init; }
 

@@ -1,3 +1,5 @@
+using Yolla.Application.Common;
+
 namespace Yolla.Application.Discovery;
 
 /// <summary>
@@ -33,8 +35,22 @@ public sealed record PlaceCardDto
     /// <example>castle</example>
     public string? CategoryIcon { get; init; }
 
-    /// <summary>Kart görseli.</summary>
+    /// <summary>Kart görselinin orijinali. Büyüktür (ortalama ~1 MB).</summary>
+    /// <remarks>
+    /// Listede göstermek için <see cref="PhotoThumbUrl"/>, tam ekran kart için
+    /// <see cref="PhotoLargeUrl"/> tercih edilmeli.
+    /// </remarks>
     public required string PhotoUrl { get; init; }
+
+    /// <summary>Liste ve önizleme için küçültülmüş görsel (500 piksel genişlik).</summary>
+    /// <remarks>
+    /// Adres Wikimedia deseniyle uyuşmuyorsa orijinalin aynısı döner; alan hiçbir
+    /// durumda boş kalmaz.
+    /// </remarks>
+    public string PhotoThumbUrl => CommonsThumbnail.Thumb(PhotoUrl)!;
+
+    /// <summary>Tam ekran kart için küçültülmüş görsel (960 piksel genişlik).</summary>
+    public string PhotoLargeUrl => CommonsThumbnail.Large(PhotoUrl)!;
 
     /// <summary>
     /// Görselin altında gösterilmesi zorunlu atıf satırı.

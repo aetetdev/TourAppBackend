@@ -37,6 +37,19 @@ public sealed record SwipeResultDto
     public required int TotalLiked { get; init; }
 }
 
+/// <summary>Kaydırmayı geri alma sonucu.</summary>
+public sealed record SwipeUndoResultDto
+{
+    /// <summary>
+    /// Silinecek bir kayıt bulunup bulunmadığı. Kayıt yoksa istek yine de başarılıdır:
+    /// istemci geri almayı gönderilmemiş bir kaydırma için de çağırabilir.
+    /// </summary>
+    public required bool Removed { get; init; }
+
+    /// <summary>Bu cihazın beğendiği toplam yer sayısı.</summary>
+    public required int TotalLiked { get; init; }
+}
+
 /// <summary>Kart kaydırma kayıtlarını yönetir.</summary>
 public interface ISwipeService
 {
@@ -47,6 +60,19 @@ public interface ISwipeService
     Task<SwipeResultDto> RecordAsync(
         int deviceId,
         IReadOnlyList<SwipeRequest> swipes,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bir yerin kaydırma kaydını siler; yer kart destesine geri döner.
+    /// </summary>
+    /// <remarks>
+    /// Kayıt yoksa hata verilmez. İstemci kaydırmaları toplu gönderdiği için geri alma,
+    /// henüz gönderilmemiş bir kaydırma için de çağrılabiliyor; bunu hata saymak
+    /// istemciyi 404'ü başarı gibi ele almaya zorlardı.
+    /// </remarks>
+    Task<SwipeUndoResultDto> UndoAsync(
+        int deviceId,
+        int placeId,
         CancellationToken cancellationToken = default);
 
     /// <summary>Cihazın beğendiği yerleri kart biçiminde döndürür.</summary>

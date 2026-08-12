@@ -207,6 +207,83 @@ public class DeviceAndSwipeEndpointTests(PostgisFixture fixture) : IAsyncLifetim
         secondLiked.GetProperty("data").GetArrayLength().ShouldBe(0);
     }
 
+    // --- Geri alma ---
+
+    [Fact]
+    public async Task Geri_alinan_yer_desteye_geri_doner()
+    {
+        var (client, deviceId) = await CreateAuthenticatedClientAsync();
+
+        await RecordSwipesAsync(client, (_placeIds[0], "Pass"));
+        (await GetFeedIdsAsync(client)).ShouldNotContain(_placeIds[0]);
+
+        var result = await UndoSwipeAsync(client, _placeIds[0]);
+
+        result.Removed.ShouldBeTrue();
+        (await GetFeedIdsAsync(client)).ShouldContain(_placeIds[0]);
+
+        // Yön güncellemesi yetmez: feed kaydırılmış her yeri eliyor, kayıt silinmeli
+        await using var context = fixture.CreateDbContext();
+        (await context.Swipes.AnyAsync(x => x.DeviceId == deviceId && x.PlaceId == _placeIds[0]))
+            .ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Geri_alinan_begeni_listeden_cikar()
+    {
+        var (client, _) = await CreateAuthenticatedClientAsync();
+
+        await RecordSwipesAsync(client, (_placeIds[0], "Like"), (_placeIds[1], "Like"));
+
+        var result = await UndoSwipeAsync(client, _placeIds[0]);
+
+        result.TotalLiked.ShouldBe(1);
+
+        var liked = await client.GetFromJsonAsync<JsonElement>("/api/v1/discovery/swipes/liked");
+
+        liked.GetProperty("data").EnumerateArray()
+            .Select(x => x.GetProperty("id").GetInt32())
+            .ShouldNotContain(_placeIds[0]);
+    }
+
+    [Fact]
+    public async Task Kaydi_olmayan_yerin_geri_alinmasi_hata_vermez()
+    {
+        // Kaydırmalar toplu gönderiliyor; istemci henüz gönderilmemiş bir kaydırma için
+        // de bu ucu çağırabilir. 404 dönmek istemciyi hatayı başarı saymaya zorlardı.
+        var (client, _) = await CreateAuthenticatedClientAsync();
+
+        var result = await UndoSwipeAsync(client, _placeIds[0]);
+
+        result.Removed.ShouldBeFalse();
+        result.TotalLiked.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Bir_cihaz_digerinin_kaydirmasini_geri_alamaz()
+    {
+        var (first, firstDeviceId) = await CreateAuthenticatedClientAsync();
+        var (second, _) = await CreateAuthenticatedClientAsync();
+
+        await RecordSwipesAsync(first, (_placeIds[0], "Like"));
+
+        var result = await UndoSwipeAsync(second, _placeIds[0]);
+
+        result.Removed.ShouldBeFalse();
+
+        await using var context = fixture.CreateDbContext();
+        (await context.Swipes.AnyAsync(x => x.DeviceId == firstDeviceId && x.PlaceId == _placeIds[0]))
+            .ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Jetonsuz_geri_alma_reddedilir()
+    {
+        var response = await _client.DeleteAsync($"/api/v1/discovery/swipes/{_placeIds[0]}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
     // --- Yardımcılar ---
 
     private async Task<DeviceSession> RegisterDeviceAsync(
@@ -260,6 +337,20 @@ public class DeviceAndSwipeEndpointTests(PostgisFixture fixture) : IAsyncLifetim
 
         return new SwipeResult(
             data.GetProperty("recorded").GetInt32(),
+            data.GetProperty("totalLiked").GetInt32());
+    }
+
+    private static async Task<UndoResult> UndoSwipeAsync(HttpClient client, int placeId)
+    {
+        var response = await client.DeleteAsync($"/api/v1/discovery/swipes/{placeId}");
+
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var data = json.GetProperty("data");
+
+        return new UndoResult(
+            data.GetProperty("removed").GetBoolean(),
             data.GetProperty("totalLiked").GetInt32());
     }
 
@@ -348,4 +439,6 @@ public class DeviceAndSwipeEndpointTests(PostgisFixture fixture) : IAsyncLifetim
     private sealed record DeviceSession(int DeviceId, string AccessToken, DateTimeOffset ExpiresAt);
 
     private sealed record SwipeResult(int Recorded, int TotalLiked);
+
+    private sealed record UndoResult(bool Removed, int TotalLiked);
 }

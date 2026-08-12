@@ -14,19 +14,30 @@ namespace Yolla.Api.IntegrationTests;
 /// Sahte veriyle çalışmak burada işe yaramaz, çünkü sorunların çoğu (geography/geometry
 /// dönüşümü gibi) yalnızca gerçek sunucuda ortaya çıkıyor.
 /// </remarks>
-public sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>
+/// <param name="settings">
+/// Teste özel yapılandırma; belirli bir ayarın davranışını sınamak için.
+/// </param>
+public sealed class ApiFactory(
+    string connectionString,
+    IReadOnlyDictionary<string, string?>? settings = null) : WebApplicationFactory<Program>
 {
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment("Development");
 
-        builder.ConfigureHostConfiguration(config =>
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:Postgres"] = connectionString,
-                // Test ortamında Redis kullanılmıyor
-                ["ConnectionStrings:Redis"] = null
-            }));
+        var configuration = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Postgres"] = connectionString,
+            // Test ortamında Redis kullanılmıyor
+            ["ConnectionStrings:Redis"] = null
+        };
+
+        foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
+        {
+            configuration[key] = value;
+        }
+
+        builder.ConfigureHostConfiguration(config => config.AddInMemoryCollection(configuration));
 
         return base.CreateHost(builder);
     }
