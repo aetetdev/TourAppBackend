@@ -1,10 +1,13 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
 using Serilog;
 using Yolla.Api.Middleware;
 using Yolla.Infrastructure;
+using Yolla.Infrastructure.Caching;
+using Yolla.Infrastructure.HealthChecks;
 using Yolla.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,8 +31,20 @@ builder.Services.AddControllers()
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<YollaDbContext>();
+// Sağlık kontrolü tüm bağımlılıkları kapsar. Veritabanı çökerse "sağlıksız" (trafik
+// alınmamalı), Redis veya rota motoru çökerse "uyarı" (ürün kısıtlı çalışır).
+var healthChecks = builder.Services.AddHealthChecks()
+    .AddDbContextCheck<YollaDbContext>("veritabani");
+
+healthChecks.AddCheck<OsrmHealthCheck>("rota-motoru", tags: ["hazir"]);
+
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Redis")))
+{
+    healthChecks.AddCheck<RedisHealthCheck>("onbellek", tags: ["hazir"]);
+}
+
+builder.Services.AddHttpClient<OsrmHealthCheck>(client =>
+    client.Timeout = TimeSpan.FromSeconds(5));
 
 // --- CORS ---
 // İzin verilen adresler yapılandırmadan gelir; joker karakter kullanılmaz.
@@ -103,10 +118,41 @@ app.UseHttpsRedirection();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
+
+// Redis varsa sunucular arası ortak sayaç devreye girer; kimlik doğrulamadan sonra
+// çalışır ki istemci IP yerine cihaz kimliğiyle ayrıştırılabilsin
+if (app.Services.GetService<RedisRateLimiter>() is not null)
+{
+    app.UseMiddleware<RateLimitingMiddleware>();
+}
+
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+// Yük dengeleyici için: veritabanı çalışıyorsa örnek trafik alabilir
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = check => !check.Tags.Contains("hazir")
+});
+
+// İzleme için: bağımlılıkların tümünü ayrıntılı gösterir
+app.MapHealthChecks("/health/detay", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            durum = report.Status.ToString(),
+            sureMs = report.TotalDuration.TotalMilliseconds,
+            kontroller = report.Entries.ToDictionary(
+                entry => entry.Key,
+                entry => new { durum = entry.Value.Status.ToString(), aciklama = entry.Value.Description })
+        });
+    }
+});
 
 app.Run();
 

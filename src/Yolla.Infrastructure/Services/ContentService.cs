@@ -10,7 +10,7 @@ using Yolla.Infrastructure.Persistence;
 namespace Yolla.Infrastructure.Services;
 
 /// <inheritdoc cref="IContentService"/>
-public sealed class ContentService(YollaDbContext context) : IContentService
+public sealed class ContentService(YollaDbContext context, ICacheService cache) : IContentService
 {
     /// <summary>Kendi ürettiğimiz içeriğin lisans etiketi.</summary>
     public const string OwnLicense = "Yolla";
@@ -63,6 +63,8 @@ public sealed class ContentService(YollaDbContext context) : IContentService
 
         await context.SaveChangesAsync(cancellationToken);
 
+        await InvalidateAsync(cancellationToken);
+
         return ToDto(existing, place.Name);
     }
 
@@ -93,6 +95,22 @@ public sealed class ContentService(YollaDbContext context) : IContentService
         RevertFromPlace(contribution.Place, contribution);
 
         await context.SaveChangesAsync(cancellationToken);
+
+        await InvalidateAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// İçerik değiştiğinde önbelleği temizler.
+    /// </summary>
+    /// <remarks>
+    /// Hem yer detayları hem coğrafi sayımlar etkilenir: fotoğraf eklenen bir yer artık
+    /// kart olarak gösterilebilir hale gelir ve şehrin "hazır yer sayısı" değişir.
+    /// Temizlenmezse yönetici içeriği eklediği halde uygulamada göremez.
+    /// </remarks>
+    private async Task InvalidateAsync(CancellationToken cancellationToken)
+    {
+        await cache.RemoveByPrefixAsync(CacheKeys.PlacePrefix, cancellationToken);
+        await cache.RemoveByPrefixAsync(CacheKeys.GeoPrefix, cancellationToken);
     }
 
     public async Task<IReadOnlyList<MissingContentDto>> GetMissingContentAsync(

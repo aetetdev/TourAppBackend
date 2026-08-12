@@ -10,8 +10,15 @@ using Yolla.Infrastructure.Persistence;
 namespace Yolla.Infrastructure.Services;
 
 /// <inheritdoc cref="IGeoService"/>
-public sealed class GeoService(YollaDbContext context) : IGeoService
+/// <remarks>
+/// Şehir listesi her uygulama açılışında isteniyor ve neredeyse hiç değişmiyor
+/// (yeni yer eklendikçe yalnızca sayılar oynuyor). Bu yüzden önbelleğe alınıyor.
+/// </remarks>
+public sealed class GeoService(YollaDbContext context, ICacheService cache) : IGeoService
 {
+    /// <summary>Şehir verisi seyrek değişir; uzun süre saklanabilir.</summary>
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(6);
+
     /// <summary>
     /// Kart olarak gösterilebilir yer koşulu: fotoğrafı, atıf bilgisi ve yeterli puanı olan,
     /// görünür kategorideki kayıtlar. Atıf bilgisi eksik fotoğraf gösterilemez.
@@ -24,8 +31,13 @@ public sealed class GeoService(YollaDbContext context) : IGeoService
         && place.PhotoLicense != null
         && place.QualityScore >= PlaceQualityScorer.FeedThreshold;
 
-    public async Task<IReadOnlyList<CountryDto>> GetCountriesAsync(
-        CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<CountryDto>> GetCountriesAsync(
+        CancellationToken cancellationToken = default) =>
+        cache.GetOrCreateAsync(
+            CacheKeys.CountriesKey, CacheDuration, LoadCountriesAsync, cancellationToken);
+
+    private async Task<IReadOnlyList<CountryDto>> LoadCountriesAsync(
+        CancellationToken cancellationToken)
     {
         var countries = await context.Countries
             .AsNoTracking()
@@ -53,7 +65,7 @@ public sealed class GeoService(YollaDbContext context) : IGeoService
             .ToList();
     }
 
-    public async Task<IReadOnlyList<CityDto>> GetCitiesAsync(
+    public Task<IReadOnlyList<CityDto>> GetCitiesAsync(
         string countryIso2,
         string? search = null,
         bool onlyWithContent = false,
@@ -61,6 +73,19 @@ public sealed class GeoService(YollaDbContext context) : IGeoService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(countryIso2);
 
+        return cache.GetOrCreateAsync(
+            CacheKeys.Cities(countryIso2.ToUpperInvariant(), search, onlyWithContent),
+            CacheDuration,
+            token => LoadCitiesAsync(countryIso2, search, onlyWithContent, token),
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<CityDto>> LoadCitiesAsync(
+        string countryIso2,
+        string? search,
+        bool onlyWithContent,
+        CancellationToken cancellationToken)
+    {
         var iso2 = countryIso2.ToUpperInvariant();
 
         var query = context.Cities

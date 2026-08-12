@@ -61,20 +61,24 @@ gezi planı ve her iki rota modu uçtan uca çalışıyor.
 - Hesap silme (App Store zorunluluğu); tüm kişisel veri birlikte siliniyor
 - Kalan: şifre sıfırlama (e-posta gönderimi altyapısı gerekiyor)
 
-### 2. Deploy altyapısı  ← şu an burada
-- API için Dockerfile
-- GitHub Actions ile derleme ve test
-- Sunucu kurulumu, ortam değişkenleri
-- Şu an ürün yalnızca geliştirme makinesinde çalışıyor
+### 2. Deploy altyapısı ✅ bitti
+- Çok aşamalı Dockerfile (~102 MB, kök olmayan kullanıcı)
+- docker-compose'a `app` profilinde api servisi
+- GitHub Actions: derleme + 405 test + görüntü derleme
+- `docs/deploy.md`: ortam değişkenleri, sunucu boyutu, veri aktarımı, kontrol listesi
+- Kalan: gerçek sunucu ve otomatik dağıtım
 
-### 3. Redis cache
-- Redis bağlı ama **kullanılmıyor**; her istek veritabanına gidiyor
-- Feed sayfaları, şehir listesi ve rota sonuçları için
-- Hız sınırının da Redis'e taşınması gerekiyor (şu an bellekte; çok sunuculu ortamda çalışmaz)
+### 3. Redis cache ✅ bitti
+- Şehir listesi ve yer detayları önbellekte (ölçüm: 681 ms → 20 ms)
+- İçerik girildiğinde ilgili anahtarlar temizleniyor
+- Hız sınırı Redis'e taşındı: birden fazla sunucu çalıştığında sınır artık doğru uygulanıyor
+- Redis erişilemezse ürün çalışmaya devam ediyor, yalnızca yavaşlıyor
 
-### 4. İzleme
-- Sağlık kontrolü Redis ve OSRM'i kapsamıyor
-- Merkezi log ve hata takibi yok
+### 4. İzleme  ← şu an burada
+- ✅ Sağlık kontrolü genişletildi: `/health` (yük dengeleyici için) ve `/health/detay`
+  (veritabanı, rota motoru, önbellek ayrı ayrı)
+- Kalan: merkezi log toplama ve hata takibi (Sentry benzeri)
+- Kalan: temel ölçümler (istek sayısı, yanıt süreleri)
 
 ### Sonraya bırakılanlar
 - Yönetim CRUD'u (yer ekleme/düzenleme/gizleme)

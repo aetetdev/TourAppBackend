@@ -10,25 +10,36 @@ using Yolla.Infrastructure.Persistence;
 namespace Yolla.Infrastructure.Services;
 
 /// <inheritdoc cref="IPlaceService"/>
-public sealed class PlaceService(YollaDbContext context) : IPlaceService
+/// <remarks>
+/// Detay sayfaları önbelleğe alınıyor: aynı popüler yerler tekrar tekrar açılıyor ve
+/// içerik neredeyse hiç değişmiyor. İçerik girişi yapıldığında ilgili anahtar siliniyor.
+/// </remarks>
+public sealed class PlaceService(YollaDbContext context, ICacheService cache) : IPlaceService
 {
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(2);
+
     private const int NearbyRadiusMeters = 3000;
     private const int NearbyLimit = 6;
     private const int MaxNearbyRadiusMeters = 20_000;
     private const int MaxNearbyTake = 50;
 
-    public async Task<PlaceDetailDto> GetByIdAsync(
+    public Task<PlaceDetailDto> GetByIdAsync(
         int placeId,
         string language = "tr",
-        CancellationToken cancellationToken = default)
-    {
-        var place = await LoadAsync(x => x.Id == placeId, cancellationToken)
-                    ?? throw new NotFoundException("Yer", placeId);
+        CancellationToken cancellationToken = default) =>
+        cache.GetOrCreateAsync(
+            CacheKeys.PlaceDetail(placeId, language),
+            CacheDuration,
+            async token =>
+            {
+                var place = await LoadAsync(x => x.Id == placeId, token)
+                            ?? throw new NotFoundException("Yer", placeId);
 
-        return await BuildDetailAsync(place, language, cancellationToken);
-    }
+                return await BuildDetailAsync(place, language, token);
+            },
+            cancellationToken);
 
-    public async Task<PlaceDetailDto> GetBySlugAsync(
+    public Task<PlaceDetailDto> GetBySlugAsync(
         string citySlug,
         string placeSlug,
         string language = "tr",
@@ -37,11 +48,17 @@ public sealed class PlaceService(YollaDbContext context) : IPlaceService
         ArgumentException.ThrowIfNullOrWhiteSpace(citySlug);
         ArgumentException.ThrowIfNullOrWhiteSpace(placeSlug);
 
-        var place = await LoadAsync(
-                        x => x.Slug == placeSlug && x.City.Slug == citySlug, cancellationToken)
-                    ?? throw new NotFoundException("Yer", $"{citySlug}/{placeSlug}");
+        return cache.GetOrCreateAsync(
+            CacheKeys.PlaceBySlug(citySlug, placeSlug, language),
+            CacheDuration,
+            async token =>
+            {
+                var place = await LoadAsync(x => x.Slug == placeSlug && x.City.Slug == citySlug, token)
+                            ?? throw new NotFoundException("Yer", $"{citySlug}/{placeSlug}");
 
-        return await BuildDetailAsync(place, language, cancellationToken);
+                return await BuildDetailAsync(place, language, token);
+            },
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<PlaceCardDto>> GetNearbyCardsAsync(

@@ -5,13 +5,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using StackExchange.Redis;
 using Yolla.Application.Auth;
-using Yolla.Application.Discovery;
+using Yolla.Application.Common;
 using Yolla.Application.Content;
+using Yolla.Application.Discovery;
 using Yolla.Application.Geo;
 using Yolla.Application.Places;
 using Yolla.Application.Routing;
 using Yolla.Application.Trips;
 using Yolla.Infrastructure.Auth;
+using Yolla.Infrastructure.Caching;
 using Yolla.Infrastructure.Routing;
 using Yolla.Infrastructure.Identity;
 using Yolla.Infrastructure.Persistence;
@@ -23,6 +25,45 @@ public static class DependencyInjection
 {
     /// <summary>docker-compose'daki varsayılan geliştirme şifresi.</summary>
     private const string LocalDevelopmentPassword = "yolla_dev";
+
+    /// <summary>
+    /// Önbelleği kurar. Redis tanımlı değilse veya bağlanılamazsa uygulama çalışmaya
+    /// devam eder; yalnızca her istek veri kaynağına gider.
+    /// </summary>
+    private static void AddCaching(IServiceCollection services, IConfiguration configuration)
+    {
+        var redisConnection = configuration.GetConnectionString("Redis");
+
+        if (string.IsNullOrWhiteSpace(redisConnection))
+        {
+            services.AddSingleton<ICacheService, NoOpCacheService>();
+
+            return;
+        }
+
+        try
+        {
+            var options = ConfigurationOptions.Parse(redisConnection);
+
+            // Redis kapalıysa uygulamanın açılışta takılmaması için: bağlantı arka planda
+            // kurulmaya çalışılır, ilk istekler önbelleksiz devam eder
+            options.AbortOnConnectFail = false;
+            options.ConnectTimeout = 3000;
+            options.ConnectRetry = 3;
+
+            services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(options));
+            services.AddSingleton<ICacheService, RedisCacheService>();
+
+            // Sunucular arası ortak hız sınırı sayacı
+            services.AddSingleton<RedisRateLimiter>();
+        }
+        catch (Exception)
+        {
+            // Bağlantı dizesi bozuksa önbelleksiz devam edilir; ürünün açılmaması
+            // bir hız iyileştirmesinden daha kötü olurdu
+            services.AddSingleton<ICacheService, NoOpCacheService>();
+        }
+    }
 
     /// <param name="environment">
     /// Ortam bilgisi doğrudan barındırma katmanından alınır. Yapılandırmadan
@@ -108,12 +149,7 @@ public static class DependencyInjection
 
         services.AddJwtAuthentication(configuration, environmentName);
 
-        var redisConnection = configuration.GetConnectionString("Redis");
-        if (!string.IsNullOrWhiteSpace(redisConnection))
-        {
-            services.AddSingleton<IConnectionMultiplexer>(_ =>
-                ConnectionMultiplexer.Connect(redisConnection));
-        }
+        AddCaching(services, configuration);
 
         return services;
     }
