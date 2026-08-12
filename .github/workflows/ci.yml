@@ -1,0 +1,52 @@
+name: Derleme ve testler
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .NET kurulumu
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Paketleri geri yükle
+        run: dotnet restore Yolla.slnx
+
+      - name: Derle
+        run: dotnet build Yolla.slnx --configuration Release --no-restore
+
+      - name: Birim testler
+        run: >
+          dotnet test tests/Yolla.Application.Tests/Yolla.Application.Tests.csproj
+          --configuration Release --no-build --verbosity minimal
+
+      # Entegrasyon testleri Testcontainers ile gerçek PostGIS başlatır;
+      # GitHub Actions çalıştırıcılarında Docker hazır geliyor.
+      - name: Entegrasyon testleri
+        run: >
+          dotnet test tests/Yolla.Api.IntegrationTests/Yolla.Api.IntegrationTests.csproj
+          --configuration Release --no-build --verbosity minimal
+
+  docker-image:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Görüntüyü derle
+        run: docker build -f src/Yolla.Api/Dockerfile -t yolla-api:${{ github.sha }} .
+
+      # Görüntü şimdilik yalnızca derleniyor; kayıt defterine gönderim
+      # sunucu kurulduktan sonra eklenecek.
+      - name: Görüntü bilgisi
+        run: docker image inspect yolla-api:${{ github.sha }} --format 'Boyut: {{.Size}} bayt'
