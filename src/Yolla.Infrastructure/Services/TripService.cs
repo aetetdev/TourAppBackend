@@ -44,10 +44,19 @@ public sealed class TripService(YollaDbContext context, IRoutingClient routingCl
                 nameof(request.CityId), "Şehir içi planda şehir seçilmeli.");
         }
 
-        if (request.Mode == TripMode.Route && (request.StartPoint is null || request.EndPoint is null))
+        // Rota planının iki gelişi var. Koridor akışında kullanıcı "şuradan
+        // şuraya" diyor: uçlar belli, yerler yolun üstünden seçiliyor.
+        // Haritadan birden çok şehirden yer toplandığında ise uç yok, elde
+        // yalnızca duraklar var — sıralarını rota motoru belirliyor. İkincisi
+        // de geçerli bir plan; uç şartı yalnızca durak da yoksa anlamlı.
+        var hasEndpoints = request.StartPoint is not null && request.EndPoint is not null;
+        var hasEnoughPlaces = request.PlaceIds is { Count: >= 2 };
+
+        if (request.Mode == TripMode.Route && !hasEndpoints && !hasEnoughPlaces)
         {
             throw RequestValidationException.Single(
-                nameof(request.StartPoint), "Rota planında başlangıç ve varış noktası gerekli.");
+                nameof(request.StartPoint),
+                "Rota planında ya başlangıç ve varış noktası ya da en az iki durak gerekli.");
         }
 
         var trip = new Trip
@@ -257,6 +266,13 @@ public sealed class TripService(YollaDbContext context, IRoutingClient routingCl
                 "places",
                 "Rota için en az iki nokta gerekli. Tek durak varsa plana başlangıç noktası ekleyin.");
         }
+
+        // Profil duraklara bakılarak seçiliyor, istemcinin gönderdiği
+        // varsayılana güvenilmiyor. Haritadan iki ayrı şehirden yer seçen
+        // kullanıcı 505 km'lik bir *yürüme* rotası alıyordu: 101 saatlik
+        // "gezi planı". Seçim plana yazılıyor ki arayüzdeki simge ve
+        // navigasyona aktarma da aynı profili kullansın.
+        trip.TravelMode = TravelModePolicy.Choose(points);
 
         var route = await routingClient.OptimizeTripAsync(
             points, trip.TravelMode, roundTrip: false, cancellationToken);
