@@ -88,6 +88,31 @@ services:
       - ./osrm/foot:/data
     restart: unless-stopped
 
+  # --- Harita altlığı ---
+  # Protomaps self-host: tek bir .pmtiles dosyası, karolar HTTP range okumasıyla
+  # veriliyor. API anahtarı yok, istek başına ücret yok, kota yok.
+  #
+  # Dosyayı üretmek (yalnızca bir kez; planetten Türkiye kutusu kesiliyor,
+  # yapılar bir hafta saklandığı için tarihi güncelle):
+  #   docker run --rm -v "<mutlak-yol>/data/tiles:/data" protomaps/go-pmtiles:latest \
+  #     extract https://build.protomaps.com/YYYYMMDD.pmtiles /data/turkiye.pmtiles \
+  #     --bbox=25.5,35.7,45.0,42.3 --maxzoom=14
+  #
+  # 2026-08-12 yapısında sonuç 869 MB. z14 yeterli: MapLibre daha yakınında
+  # karoyu büyüterek gösteriyor, veri z14'ten sonra zaten anlamlı incelmiyor.
+  #
+  # Karo adresi: http://localhost:8080/turkiye/{z}/{x}/{y}.mvt
+  # Atıf zorunlu: "© OpenStreetMap katkıcıları" haritanın üstünde görünmeli.
+  tiles:
+    image: protomaps/go-pmtiles:latest
+    container_name: yolla-tiles
+    command: serve /data --port 8080 --cors "*"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/tiles:/data
+    restart: unless-stopped
+
 volumes:
   yolla-pgdata:
   yolla-redisdata:
