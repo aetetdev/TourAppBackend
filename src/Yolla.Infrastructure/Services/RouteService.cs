@@ -127,6 +127,131 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
         };
     }
 
+    public async Task<CorridorCitiesDto> GetCorridorCitiesAsync(
+        CorridorCitiesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var bufferKm = Math.Clamp(request.BufferKm, MinBufferKm, MaxBufferKm);
+
+        var points = new List<GeoPoint> { request.Start, request.End };
+
+        var geoJson = await routingClient.GetRouteGeoJsonAsync(
+            points, Domain.Enums.TravelMode.Car, cancellationToken);
+
+        var route = await routingClient.GetRouteAsync(
+            points, Domain.Enums.TravelMode.Car, cancellationToken);
+
+        var cities = await QueryCorridorCitiesAsync(
+            request, geoJson, bufferKm, cancellationToken);
+
+        return new CorridorCitiesDto
+        {
+            Cities = cities,
+            RouteDistanceMeters = route.DistanceMeters,
+            RouteDurationSeconds = route.DurationSeconds,
+            RouteGeometry = route.Geometry
+        };
+    }
+
+    /// <summary>
+    /// Koridora giren yerleri şehre göre toplar.
+    /// </summary>
+    /// <remarks>
+    /// Eleme koşulları kart sorgusuyla **birebir aynı** tutuluyor: kullanıcıya
+    /// "bu şehirde 12 yer var" denip sonra kart akışında farklı bir sayı
+    /// çıkmamalı. Sıralama <c>ST_LineLocatePoint</c> ile yol üzerindeki
+    /// konuma göre; şehirler geçilecekleri sırayla listeleniyor.
+    /// </remarks>
+    private async Task<List<CorridorCityDto>> QueryCorridorCitiesAsync(
+        CorridorCitiesRequest request,
+        string routeGeoJson,
+        int bufferKm,
+        CancellationToken cancellationToken)
+    {
+        var categoryFilter = request.CategoryKeys is { Count: > 0 }
+            ? "AND c.key = ANY(@categories)"
+            : string.Empty;
+
+        var sql = $"""
+            WITH route AS (
+                SELECT
+                    ST_SetSRID(ST_GeomFromGeoJSON(@geojson), 4326) AS line,
+                    ST_SetSRID(ST_MakePoint(@start_lon, @start_lat), 4326)::geography AS start_point,
+                    ST_SetSRID(ST_MakePoint(@end_lon, @end_lat), 4326)::geography AS end_point
+            ),
+            candidates AS (
+                SELECT
+                    p.city_id,
+                    ci.name AS city_name,
+                    ST_LineLocatePoint(r.line, p.location::geometry) AS progress
+                FROM places p
+                CROSS JOIN route r
+                JOIN categories c ON c.id = p.category_id
+                JOIN cities ci    ON ci.id = p.city_id
+                WHERE ST_DWithin(p.location, r.line::geography, @buffer_meters)
+                  AND p.is_active
+                  AND c.is_visible
+                  AND p.photo_url IS NOT NULL
+                  AND p.photo_author IS NOT NULL
+                  AND p.photo_license IS NOT NULL
+                  AND p.quality_score >= @min_score
+                  AND ST_Distance(p.location, r.start_point) > @endpoint_meters
+                  AND ST_Distance(p.location, r.end_point)   > @endpoint_meters
+                  {categoryFilter}
+            )
+            SELECT
+                city_id,
+                city_name,
+                COUNT(*)      AS place_count,
+                MIN(progress) AS progress
+            FROM candidates
+            GROUP BY city_id, city_name
+            ORDER BY progress
+            """;
+
+        await using var command = context.Database.GetDbConnection().CreateCommand();
+
+        command.CommandText = sql;
+        command.CommandTimeout = 60;
+
+        AddParameter(command, "geojson", NpgsqlDbType.Text, routeGeoJson);
+        AddParameter(command, "buffer_meters", NpgsqlDbType.Double, (double)bufferKm * 1000);
+        AddParameter(command, "min_score", NpgsqlDbType.Smallint, PlaceQualityScorer.FeedThreshold);
+        AddParameter(command, "start_lat", NpgsqlDbType.Double, request.Start.Latitude);
+        AddParameter(command, "start_lon", NpgsqlDbType.Double, request.Start.Longitude);
+        AddParameter(command, "end_lat", NpgsqlDbType.Double, request.End.Latitude);
+        AddParameter(command, "end_lon", NpgsqlDbType.Double, request.End.Longitude);
+        AddParameter(command, "endpoint_meters", NpgsqlDbType.Double,
+            (double)Math.Clamp(request.ExcludeEndpointsKm, 0, MaxEndpointExclusionKm) * 1000);
+
+        if (request.CategoryKeys is { Count: > 0 })
+        {
+            AddParameter(command, "categories", NpgsqlDbType.Array | NpgsqlDbType.Text,
+                request.CategoryKeys.ToArray());
+        }
+
+        await context.Database.OpenConnectionAsync(cancellationToken);
+
+        var cities = new List<CorridorCityDto>();
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            cities.Add(new CorridorCityDto
+            {
+                CityId = reader.GetInt32(reader.GetOrdinal("city_id")),
+                Name = reader.GetString(reader.GetOrdinal("city_name")),
+                PlaceCount = (int)reader.GetInt64(reader.GetOrdinal("place_count")),
+                Progress = reader.GetDouble(reader.GetOrdinal("progress"))
+            });
+        }
+
+        return cities;
+    }
+
     /// <summary>
     /// Rota çizgisinin çevresindeki yerleri, yol boyunca ilerleme sırasına göre getirir.
     /// </summary>
@@ -160,6 +285,11 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
             ? "AND (t.progress > @cursor_progress OR (t.progress = @cursor_progress AND t.id > @cursor_id))"
             : string.Empty;
 
+        // Kullanıcı koridordaki şehirlerden seçim yaptıysa yalnızca onlar.
+        var cityFilter = request.CityIds is { Count: > 0 }
+            ? "AND p.city_id = ANY(@city_ids)"
+            : string.Empty;
+
         var sql = $"""
             WITH route AS (
                 SELECT
@@ -182,6 +312,7 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
                     p.photo_source,
                     p.description_tr,
                     p.description_en,
+                    p.city_id,
                     ci.name          AS city_name,
                     d.name           AS district_name,
                     ST_Y(p.location::geometry) AS latitude,
@@ -207,6 +338,7 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
                   AND ST_Distance(p.location, r.end_point)   > @endpoint_meters
                   {categoryFilter}
                   {deviceFilter}
+                  {cityFilter}
             ),
             -- Yol boyunca dengeli dağıtım: rota eşit dilimlere bölünüp her dilimden
             -- en kaliteli birkaç yer alınıyor. Yalnızca puana göre sıralansaydı tek bir
@@ -257,6 +389,12 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
             AddParameter(command, "device_id", NpgsqlDbType.Integer, deviceId);
         }
 
+        if (request.CityIds is { Count: > 0 })
+        {
+            AddParameter(command, "city_ids", NpgsqlDbType.Array | NpgsqlDbType.Integer,
+                request.CityIds.ToArray());
+        }
+
         if (hasCursor)
         {
             AddParameter(command, "cursor_progress", NpgsqlDbType.Double, cursor.Progress);
@@ -291,6 +429,7 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
         return new PlaceCardDto
         {
             Id = reader.GetInt32(reader.GetOrdinal("id")),
+            CityId = reader.GetInt32(reader.GetOrdinal("city_id")),
             Name = reader.GetString(reader.GetOrdinal("name")),
             Slug = reader.GetString(reader.GetOrdinal("slug")),
             CategoryKey = reader.GetString(reader.GetOrdinal("category_key")),
@@ -383,6 +522,7 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
                 x.PhotoSource,
                 x.DescriptionTr,
                 x.DescriptionEn,
+                x.CityId,
                 CityName = x.City.Name,
                 DistrictName = x.District != null ? x.District.Name : null,
                 x.Location,
@@ -400,6 +540,7 @@ public sealed class RouteService(YollaDbContext context, IRoutingClient routingC
             .Select(x => new PlaceCardDto
             {
                 Id = x.Id,
+                CityId = x.CityId,
                 Name = x.Name,
                 Slug = x.Slug,
                 CategoryKey = x.CategoryKey,

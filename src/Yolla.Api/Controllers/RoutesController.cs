@@ -103,4 +103,40 @@ public sealed class RoutesController(IRouteService routeService) : ControllerBas
 
         return Ok(ApiResponse<CorridorFeedDto>.Create(feed, Attribution.Places));
     }
+
+    /// <summary>Koridorun geçtiği şehirleri listeler.</summary>
+    /// <remarks>
+    /// Kullanıcı yola çıkmadan önce "hangi şehirlere uğrayayım" sorusunu
+    /// cevaplasın diye. Dönen liste yol boyunca sıralı: ilk sıradaki şehir
+    /// başlangıca en yakın olanı.
+    ///
+    /// Eleme koşulları <c>corridor</c> ucuyla birebir aynı, dolayısıyla burada
+    /// görünen <c>placeCount</c> ile o şehir seçilip kart akışına geçildiğinde
+    /// çıkan yer sayısı tutuyor. Seçim <c>corridor</c> ucuna <c>cityIds</c>
+    /// olarak geçiliyor.
+    ///
+    /// Örnek istek:
+    ///
+    ///     POST /api/v1/routes/corridor/cities
+    ///     {
+    ///       "start": { "latitude": 41.0082, "longitude": 28.9784 },
+    ///       "end":   { "latitude": 36.8969, "longitude": 30.7133 },
+    ///       "bufferKm": 15
+    ///     }
+    /// </remarks>
+    /// <response code="200">Koridordaki şehirler ve ana rota.</response>
+    /// <response code="400">Koordinatlar geçersiz.</response>
+    /// <response code="502">Rota motoruna ulaşılamadı veya iki nokta arasında yol yok.</response>
+    [HttpPost("corridor/cities")]
+    [ProducesResponseType(typeof(ApiResponse<CorridorCitiesDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetCorridorCities(
+        [FromBody] CorridorCitiesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cities = await routeService.GetCorridorCitiesAsync(request, cancellationToken);
+
+        return Ok(ApiResponse<CorridorCitiesDto>.Create(cities, Attribution.Places));
+    }
 }

@@ -83,9 +83,66 @@ public sealed record CorridorFeedRequest
 
     public IReadOnlyList<string>? CategoryKeys { get; init; }
 
+    /// <summary>
+    /// Yalnızca bu şehirlerdeki yerler dönsün. Boş bırakılırsa koridordaki
+    /// bütün şehirler dahil.
+    /// </summary>
+    /// <remarks>
+    /// Kullanıcı yola çıkmadan önce koridordaki şehirleri görüp hangilerine
+    /// uğramak istediğini seçiyor; seçim buradan geçiyor.
+    /// </remarks>
+    public IReadOnlyList<int>? CityIds { get; init; }
+
     public int? DeviceId { get; init; }
 
     public string Language { get; init; } = "tr";
+}
+
+/// <summary>Koridordaki şehirleri isteme.</summary>
+/// <remarks>
+/// Kart akışıyla aynı koridoru kullanıyor ki listelenen şehirler ile sonradan
+/// gelen kartlar birbirini tutsun.
+/// </remarks>
+public sealed record CorridorCitiesRequest
+{
+    public required GeoPoint Start { get; init; }
+
+    public required GeoPoint End { get; init; }
+
+    public int BufferKm { get; init; } = 15;
+
+    public int ExcludeEndpointsKm { get; init; } = 20;
+
+    public IReadOnlyList<string>? CategoryKeys { get; init; }
+}
+
+/// <summary>Koridorda uğranan bir şehir.</summary>
+public sealed record CorridorCityDto
+{
+    public required int CityId { get; init; }
+
+    public required string Name { get; init; }
+
+    /// <summary>Bu şehirde koridora giren yer sayısı.</summary>
+    public required int PlaceCount { get; init; }
+
+    /// <summary>
+    /// Şehrin yol üzerindeki yeri (0 = başlangıç, 1 = varış). Liste bu değere
+    /// göre sıralı geliyor; kullanıcı şehirleri geçeceği sırayla görüyor.
+    /// </summary>
+    public required double Progress { get; init; }
+}
+
+/// <summary>Koridordaki şehirler ve ana rota.</summary>
+public sealed record CorridorCitiesDto
+{
+    public required IReadOnlyList<CorridorCityDto> Cities { get; init; }
+
+    public required double RouteDistanceMeters { get; init; }
+
+    public required double RouteDurationSeconds { get; init; }
+
+    public required string RouteGeometry { get; init; }
 }
 
 /// <summary>Koridor sonucu; kartlarla birlikte ana rotanın kendisi.</summary>
@@ -125,5 +182,10 @@ public interface IRouteService
     /// <summary>İki nokta arasındaki yol koridorunda bulunan yerleri döndürür.</summary>
     Task<CorridorFeedDto> GetCorridorFeedAsync(
         CorridorFeedRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Koridorun geçtiği şehirleri, yol boyunca sırasıyla döndürür.</summary>
+    Task<CorridorCitiesDto> GetCorridorCitiesAsync(
+        CorridorCitiesRequest request,
         CancellationToken cancellationToken = default);
 }
