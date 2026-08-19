@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Serilog;
 using Yolla.Api.Middleware;
@@ -158,6 +159,31 @@ if (app.Services.GetService<RedisRateLimiter>() is not null)
 }
 
 app.UseAuthorization();
+
+// Moderasyon sayfası (wwwroot/moderasyon.html).
+//
+// Sayfanın kendisi herkese açık; işe yarar hale gelmesi için moderatör
+// rolündeki bir hesapla giriş yapılması gerekiyor. Yetki kontrolü uçlarda,
+// dosyada değil — statik bir sayfayı gizlemek güvenlik sağlamaz.
+app.UseStaticFiles();
+
+// Kullanıcıların gönderdiği fotoğraflar.
+//
+// Kimlik doğrulaması aranmıyor: onaylanan fotoğraf zaten yerin kartında
+// herkese görünüyor, adresi de tahmin edilemeyen bir GUID.
+var photoRoot = builder.Configuration["Storage:PhotoRoot"]
+                ?? Path.Combine(AppContext.BaseDirectory, "uploads");
+
+Directory.CreateDirectory(photoRoot);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Path.GetFullPath(photoRoot)),
+    RequestPath = "/uploads",
+    // Dosyalar hiç değişmiyor (her gönderi yeni GUID); uzun önbellek güvenli.
+    OnPrepareResponse = ctx =>
+        ctx.Context.Response.Headers.CacheControl = "public,max-age=604800"
+});
 
 app.MapControllers();
 

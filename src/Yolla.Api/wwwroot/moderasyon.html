@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yolla — Fotoğraf Moderasyonu</title>
+<style>
+  :root {
+    --kagit: #F7F5F2; --yuzey: #FFFFFF; --kenar: #E2DCD5;
+    --murekkep: #17110E; --sonuk: #6B615B;
+    --marka: #D9542B; --onay: #1F9D74; --red: #C0392B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--kagit); color: var(--murekkep);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 2;
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 20px; background: var(--yuzey);
+    border-bottom: 1px solid var(--kenar);
+  }
+  h1 { font-size: 17px; margin: 0; }
+  .sayac { color: var(--sonuk); font-size: 13px; }
+  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+
+  .giris { max-width: 320px; margin: 60px auto; }
+  .giris input, .giris button { width: 100%; margin-top: 8px; }
+  input {
+    padding: 10px 12px; border: 1px solid var(--kenar);
+    border-radius: 8px; font-size: 15px; background: var(--yuzey);
+  }
+  button {
+    padding: 10px 16px; border: 0; border-radius: 8px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    background: var(--marka); color: #fff;
+  }
+  button.ikincil { background: var(--yuzey); color: var(--murekkep); border: 1px solid var(--kenar); }
+  button.onay { background: var(--onay); }
+  button.red { background: var(--red); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .kart {
+    display: grid; grid-template-columns: 280px 1fr; gap: 20px;
+    background: var(--yuzey); border: 1px solid var(--kenar);
+    border-radius: 14px; padding: 16px; margin-bottom: 16px;
+  }
+  .kart img { width: 100%; border-radius: 10px; display: block; background: var(--kagit); }
+  .kart h2 { font-size: 16px; margin: 0 0 4px; }
+  .satir { color: var(--sonuk); font-size: 13px; margin: 2px 0; }
+  .eylem { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .mevcut { margin-top: 10px; }
+  .mevcut span { font-size: 12px; color: var(--sonuk); }
+  .uyari { color: var(--red); font-weight: 600; }
+  .bos { text-align: center; color: var(--sonuk); padding: 60px 0; }
+  @media (max-width: 720px) { .kart { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header hidden id="baslik">
+  <h1>Fotoğraf Moderasyonu</h1>
+  <span class="sayac" id="sayac"></span>
+  <button class="ikincil" style="margin-left:auto" id="cikis">Çıkış</button>
+</header>
+
+<main>
+  <div class="giris" id="giris">
+    <h1>Yolla Moderasyon</h1>
+    <p class="satir">Moderatör rolündeki hesabınla gir.</p>
+    <input id="eposta" type="email" placeholder="E-posta" autocomplete="username">
+    <input id="sifre" type="password" placeholder="Şifre" autocomplete="current-password">
+    <button id="girisDugme">Giriş yap</button>
+    <p class="satir uyari" id="girisHata"></p>
+  </div>
+
+  <div id="liste"></div>
+</main>
+
+<script>
+// Jeton yalnızca sekme ömrü boyunca tutuluyor: ortak bir bilgisayarda
+// sekme kapanınca oturum da kapansın.
+const KOK = '/api/v1';
+let jeton = sessionStorage.getItem('yolla.moderasyon') || null;
+
+const $ = (id) => document.getElementById(id);
+
+async function istek(yol, secenekler = {}) {
+  const yanit = await fetch(KOK + yol, {
+    ...secenekler,
+    headers: {
+      ...(secenekler.headers || {}),
+      ...(jeton ? { Authorization: 'Bearer ' + jeton } : {}),
+    },
+  });
+
+  if (yanit.status === 401 || yanit.status === 403) {
+    cikisYap('Bu hesabın moderatör yetkisi yok.');
+    throw new Error('yetki');
+  }
+
+  if (!yanit.ok) {
+    const govde = await yanit.json().catch(() => ({}));
+    throw new Error(govde.detail || govde.title || 'İstek başarısız');
+  }
+
+  return yanit.status === 204 ? null : yanit.json();
+}
+
+async function girisYap() {
+  $('girisHata').textContent = '';
+  try {
+    const yanit = await fetch(KOK + '/account/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $('eposta').value, password: $('sifre').value }),
+    });
+    const govde = await yanit.json();
+    if (!yanit.ok) throw new Error(govde.detail || govde.title || 'Giriş başarısız');
+
+    jeton = govde.data.accessToken;
+    sessionStorage.setItem('yolla.moderasyon', jeton);
+    await baslat();
+  } catch (hata) {
+    $('girisHata').textContent = hata.message;
+  }
+}
+
+function cikisYap(mesaj) {
+  jeton = null;
+  sessionStorage.removeItem('yolla.moderasyon');
+  $('baslik').hidden = true;
+  $('giris').hidden = false;
+  $('liste').innerHTML = '';
+  if (mesaj) $('girisHata').textContent = mesaj;
+}
+
+function kartCiz(oge) {
+  const el = document.createElement('div');
+  el.className = 'kart';
+
+  // Gönderenin geçmişi kötüyse öne çıkarılıyor: aynı kişi sürekli
+  // reddediliyorsa daha dikkatli bakmak gerekiyor.
+  const supheli = oge.userRejectedCount > oge.userApprovedCount && oge.userRejectedCount >= 3;
+
+  el.innerHTML = `
+    <div>
+      <a href="${oge.url}" target="_blank" rel="noopener">
+        <img src="${oge.url}" alt="Gönderilen fotoğraf" loading="lazy">
+      </a>
+      <p class="satir">${oge.width}×${oge.height} · ${(oge.sizeBytes / 1024).toFixed(0)} KB</p>
+    </div>
+    <div>
+      <h2>${oge.placeName}</h2>
+      <p class="satir">${oge.cityName || ''} · yer #${oge.placeId}</p>
+      <p class="satir">Gönderen: ${oge.userEmail || 'kullanıcı #' + oge.userId}</p>
+      <p class="satir ${supheli ? 'uyari' : ''}">
+        Geçmiş: ${oge.userApprovedCount} onay · ${oge.userRejectedCount} red
+      </p>
+      <p class="satir">${new Date(oge.createdAt).toLocaleString('tr-TR')}</p>
+      ${oge.existingPhotoUrl ? `
+        <div class="mevcut">
+          <span>Yerin şu anki fotoğrafı:</span><br>
+          <a href="${oge.existingPhotoUrl}" target="_blank" rel="noopener">
+            <img src="${oge.existingPhotoUrl}" alt="Mevcut fotoğraf" style="max-width:160px">
+          </a>
+        </div>` : '<p class="satir">Yerin fotoğrafı yok.</p>'}
+      <div class="eylem">
+        <button class="onay" data-onay="${oge.id}">Onayla (+10 coin)</button>
+        <button class="red" data-red="${oge.id}">Reddet</button>
+      </div>
+    </div>`;
+
+  el.querySelector('[data-onay]').addEventListener('click', async (olay) => {
+    olay.target.disabled = true;
+    try {
+      await istek(`/moderation/${oge.id}/onayla`, { method: 'POST' });
+      el.remove();
+      sayacGuncelle(-1);
+    } catch (hata) {
+      alert(hata.message);
+      olay.target.disabled = false;
+    }
+  });
+
+  el.querySelector('[data-red]').addEventListener('click', async (olay) => {
+    const sebep = prompt('Red sebebi (kullanıcıya gösterilecek):');
+    if (!sebep) return;
+
+    olay.target.disabled = true;
+    try {
+      await istek(`/moderation/${oge.id}/reddet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: sebep }),
+      });
+      el.remove();
+      sayacGuncelle(-1);
+    } catch (hata) {
+      alert(hata.message);
+      olay.target.disabled = false;
+    }
+  });
+
+  return el;
+}
+
+let kalan = 0;
+function sayacGuncelle(fark) {
+  kalan += fark;
+  $('sayac').textContent = kalan > 0 ? `${kalan} gönderi bekliyor` : 'kuyruk boş';
+  if (kalan === 0) $('liste').innerHTML = '<p class="bos">Bekleyen gönderi yok.</p>';
+}
+
+async function baslat() {
+  $('giris').hidden = true;
+  $('baslik').hidden = false;
+
+  const yanit = await istek('/moderation/bekleyenler?take=100');
+  const ogeler = yanit.data;
+
+  $('liste').innerHTML = '';
+  kalan = 0;
+
+  if (ogeler.length === 0) {
+    sayacGuncelle(0);
+    return;
+  }
+
+  const parca = document.createDocumentFragment();
+  ogeler.forEach((oge) => parca.appendChild(kartCiz(oge)));
+  $('liste').appendChild(parca);
+  sayacGuncelle(ogeler.length);
+}
+
+$('girisDugme').addEventListener('click', girisYap);
+$('sifre').addEventListener('keydown', (e) => { if (e.key === 'Enter') girisYap(); });
+$('cikis').addEventListener('click', () => cikisYap());
+
+if (jeton) baslat().catch(() => cikisYap());
+</script>
+</body>
+</html>

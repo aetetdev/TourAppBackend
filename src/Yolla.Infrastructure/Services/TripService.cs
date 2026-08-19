@@ -53,6 +53,11 @@ public sealed class TripService(YollaDbContext context, IRoutingClient routingCl
         var trip = new Trip
         {
             DeviceId = deviceId,
+
+            // Cihaz bir hesaba bağlıysa plan da o hesaba yazılır. Yazılmazsa
+            // aylık plan kotası (kullanıcı bazlı sayıyor) yeni planları
+            // görmüyor ve kullanıcı hiç harcamamış gibi görünüyordu.
+            UserId = await GetDeviceOwnerAsync(deviceId, cancellationToken),
             Mode = request.Mode,
             TravelMode = request.TravelMode,
             CityId = city?.Id,
@@ -90,9 +95,16 @@ public sealed class TripService(YollaDbContext context, IRoutingClient routingCl
                 CityName = x.City != null ? x.City.Name : null,
                 PlaceCount = x.Places.Count,
                 x.TotalDistanceMeters,
-                CoverPhotoUrl = x.Places
+                // Kapak, ilk durağın fotoğrafı. Atıf bilgisi olmadan
+                // gösterilemeyeceği için yazar ve lisans da çekiliyor.
+                Cover = x.Places
                     .OrderBy(p => p.OrderIndex)
-                    .Select(p => p.Place.PhotoUrl)
+                    .Select(p => new
+                    {
+                        p.Place.PhotoUrl,
+                        p.Place.PhotoAuthor,
+                        p.Place.PhotoLicense
+                    })
                     .FirstOrDefault(),
                 x.CreatedAt,
                 x.UpdatedAt
@@ -108,7 +120,10 @@ public sealed class TripService(YollaDbContext context, IRoutingClient routingCl
             CityName = x.CityName,
             PlaceCount = x.PlaceCount,
             DistanceMeters = x.TotalDistanceMeters,
-            CoverPhotoUrl = x.CoverPhotoUrl,
+            CoverPhotoUrl = x.Cover?.PhotoUrl,
+            CoverPhotoAttribution = Attribution.ForPhoto(
+                x.Cover?.PhotoAuthor,
+                x.Cover?.PhotoLicense),
             CreatedAt = x.CreatedAt,
             UpdatedAt = x.UpdatedAt
         }).ToList();
@@ -424,6 +439,7 @@ public sealed class TripService(YollaDbContext context, IRoutingClient routingCl
         PhotoAttribution = Attribution.ForPhoto(place.PhotoAuthor, place.PhotoLicense) ?? string.Empty,
         PhotoSource = place.PhotoSource,
         Description = isEnglish ? place.DescriptionEn ?? place.DescriptionTr : place.DescriptionTr,
+        CityId = place.CityId,
         CityName = place.City.Name,
         DistrictName = place.District?.Name,
         Latitude = place.Location.Y,
@@ -439,6 +455,14 @@ public sealed class TripService(YollaDbContext context, IRoutingClient routingCl
             throw new NotFoundException("Cihaz", deviceId);
         }
     }
+
+    /// <summary>Cihazın bağlı olduğu hesap; anonim cihazda null.</summary>
+    private Task<int?> GetDeviceOwnerAsync(int deviceId, CancellationToken cancellationToken) =>
+        context.Devices
+            .AsNoTracking()
+            .Where(x => x.Id == deviceId)
+            .Select(x => x.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
 
     private static string BuildName(string? requested, string? cityName)
     {

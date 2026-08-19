@@ -51,5 +51,14 @@ public interface IDeviceSessionService
 /// <summary>Erişim jetonu üretir.</summary>
 public interface ITokenGenerator
 {
-    (string Token, DateTimeOffset ExpiresAt) CreateDeviceToken(int deviceId, Guid deviceUuid, int? userId);
+    /// <param name="roles">
+    /// Kullanıcının rolleri. Jetona yazılmazsa <c>[Authorize(Roles = ...)]</c>
+    /// ile korunan uçlar rolü veritabanında olan hesabı bile reddeder —
+    /// yetkilendirme jetondaki taleplere bakıyor.
+    /// </param>
+    (string Token, DateTimeOffset ExpiresAt) CreateDeviceToken(
+        int deviceId,
+        Guid deviceUuid,
+        int? userId,
+        IEnumerable<string>? roles = null);
 }

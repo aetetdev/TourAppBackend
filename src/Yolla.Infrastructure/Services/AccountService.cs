@@ -216,7 +216,11 @@ public sealed class AccountService(
         Device device,
         CancellationToken cancellationToken)
     {
-        var (token, expiresAt) = tokenGenerator.CreateDeviceToken(device.Id, device.DeviceUuid, user.Id);
+        // Roller jetona yazılıyor; moderasyon uçları buna bakıyor.
+        var roles = await userManager.GetRolesAsync(user);
+
+        var (token, expiresAt) = tokenGenerator.CreateDeviceToken(
+            device.Id, device.DeviceUuid, user.Id, roles);
 
         return new AuthResultDto
         {

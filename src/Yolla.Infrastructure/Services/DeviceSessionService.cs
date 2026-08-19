@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Yolla.Application.Auth;
 using Yolla.Application.Common;
@@ -49,8 +50,17 @@ public sealed class DeviceSessionService(YollaDbContext context, ITokenGenerator
 
         await context.SaveChangesAsync(cancellationToken);
 
+        // Cihaz bir hesaba bağlıysa o hesabın rolleri de jetona giriyor;
+        // yoksa moderatör uygulamayı yeniden açtığında yetkisini kaybederdi.
+        var roles = device.UserId is { } userId
+            ? await context.Set<IdentityUserRole<int>>()
+                .Where(x => x.UserId == userId)
+                .Join(context.Roles, x => x.RoleId, r => r.Id, (_, r) => r.Name!)
+                .ToListAsync(cancellationToken)
+            : [];
+
         var (token, expiresAt) = tokenGenerator.CreateDeviceToken(
-            device.Id, device.DeviceUuid, device.UserId);
+            device.Id, device.DeviceUuid, device.UserId, roles);
 
         return new DeviceSessionDto
         {

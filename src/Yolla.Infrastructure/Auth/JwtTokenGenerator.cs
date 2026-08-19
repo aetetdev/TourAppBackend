@@ -21,7 +21,8 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : ITokenGene
     public (string Token, DateTimeOffset ExpiresAt) CreateDeviceToken(
         int deviceId,
         Guid deviceUuid,
-        int? userId)
+        int? userId,
+        IEnumerable<string>? roles = null)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddDays(_options.DeviceTokenDays);
 
@@ -36,6 +37,14 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : ITokenGene
         if (userId is { } id)
         {
             claims.Add(new Claim(ClaimTypes.NameIdentifier, id.ToString()));
+        }
+
+        // Roller jetona yazılıyor: yetkilendirme her istekte veritabanına
+        // gitmiyor, taleplere bakıyor. Bunun bedeli, rol değişikliğinin
+        // jeton yenilenene kadar geçerli olmaması.
+        foreach (var role in roles ?? [])
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Key));

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Yolla.Api.Extensions;
 using Yolla.Application.Common;
+using Yolla.Application.Rewards;
 using Yolla.Application.Trips;
 
 namespace Yolla.Api.Controllers;
@@ -21,7 +22,9 @@ namespace Yolla.Api.Controllers;
 [Route("api/v1/trips")]
 [Produces("application/json")]
 [Authorize]
-public sealed class TripsController(ITripService tripService) : ControllerBase
+public sealed class TripsController(
+    ITripService tripService,
+    IRewardService rewards) : ControllerBase
 {
     /// <summary>Kullanıcının planlarını listeler.</summary>
     /// <response code="200">Plan listesi, en son güncellenen başta.</response>
@@ -62,6 +65,17 @@ public sealed class TripsController(ITripService tripService) : ControllerBase
         [FromBody] CreateTripRequest request,
         CancellationToken cancellationToken)
     {
+        // Ücretsiz hesap ayda RewardRules.FreeMonthlyTripLimit plan kaydedebiliyor;
+        // premiumda sınır yok. Kota takvim ayı başında sıfırlanıyor.
+        if (User.GetUserId() is { } userId
+            && !await rewards.CanCreateTripAsync(userId, cancellationToken))
+        {
+            throw RequestValidationException.Single(
+                "trip",
+                $"Ücretsiz hesapla ayda {RewardRules.FreeMonthlyTripLimit} plan "
+                + "kaydedebilirsin. Premium'a geçerek sınırı kaldırabilirsin.");
+        }
+
         var trip = await tripService.CreateAsync(User.GetDeviceId(), request, cancellationToken);
 
         return CreatedAtAction(

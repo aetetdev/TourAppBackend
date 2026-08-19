@@ -10,6 +10,7 @@ using Yolla.Application.Content;
 using Yolla.Application.Discovery;
 using Yolla.Application.Geo;
 using Yolla.Application.Places;
+using Yolla.Application.Rewards;
 using Yolla.Application.Routing;
 using Yolla.Application.Trips;
 using Yolla.Infrastructure.Auth;
@@ -135,6 +136,11 @@ public static class DependencyInjection
         services.AddScoped<IContentService, ContentService>();
         services.AddScoped<ITripService, TripService>();
         services.AddScoped<IAccountService, AccountService>();
+
+        // Fotoğraf katkısı, coin ve premium.
+        // Depolama tekil: yalnızca kök klasörü ve adresi tutuyor, durumu yok.
+        services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
+        services.AddScoped<IRewardService, RewardService>();
 
         services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
 

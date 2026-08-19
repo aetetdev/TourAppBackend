@@ -72,6 +72,12 @@ public sealed record TripSummaryDto
     /// <summary>Kapak görselinin küçültülmüşü (500 piksel genişlik).</summary>
     public string? CoverPhotoThumbUrl => CommonsThumbnail.Thumb(CoverPhotoUrl);
 
+    /// <summary>Kapak görselinin yanında gösterilmesi zorunlu atıf satırı.</summary>
+    /// <remarks>
+    /// Commons görselleri çoğunlukla CC BY-SA. Atıf olmadan kapak gösterilemez.
+    /// </remarks>
+    public string? CoverPhotoAttribution { get; init; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset? UpdatedAt { get; init; }

@@ -25,6 +25,9 @@ public class YollaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<in
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<TripPlace> TripPlaces => Set<TripPlace>();
     public DbSet<Swipe> Swipes => Set<Swipe>();
+    public DbSet<PhotoSubmission> PhotoSubmissions => Set<PhotoSubmission>();
+    public DbSet<CoinEntry> CoinEntries => Set<CoinEntry>();
+    public DbSet<PremiumGrant> PremiumGrants => Set<PremiumGrant>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
