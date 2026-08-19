@@ -89,4 +89,44 @@ public sealed class PlacesController(IPlaceService placeService) : ControllerBas
 
         return Ok(ApiResponse<IReadOnlyList<PlaceCardDto>>.Create(places, Attribution.Places));
     }
+
+    /// <summary>Haritanın görünen alanındaki yerleri işaret olarak döndürür.</summary>
+    /// <remarks>
+    /// Keşif haritası için. Kullanıcı haritayı kaydırdıkça ya da uzaklaştırdıkça
+    /// istemci yeni sınırlarla tekrar çağırır.
+    ///
+    /// Kart ucundan farklı olarak **fotoğrafsız yerler de** dönüyor: haritada
+    /// görünüp fotoğrafı olmayan yer, kullanıcıdan fotoğraf istemek için doğal
+    /// bir fırsat. İşarette <c>hasPhoto</c> ile ayırt edilir.
+    ///
+    /// Geniş bir alan seçildiğinde sonuç <c>take</c> ile sınırlanır ve **kalite
+    /// puanına göre** kesilir; yani rastgele değil, en iyi yerler döner.
+    ///
+    ///     GET /api/v1/places/in-bounds?south=41.0&amp;west=28.9&amp;north=41.1&amp;east=29.1
+    /// </remarks>
+    /// <param name="south">Alt enlem.</param>
+    /// <param name="west">Sol boylam.</param>
+    /// <param name="north">Üst enlem.</param>
+    /// <param name="east">Sağ boylam.</param>
+    /// <param name="take">Kaç işaret döneceği (1-300, varsayılan 200).</param>
+    /// <param name="language">İçerik dili.</param>
+    /// <response code="200">Görünen alandaki işaretler.</response>
+    /// <response code="400">Sınırlar geçersiz.</response>
+    [HttpGet("in-bounds")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PlacePinDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetInBounds(
+        [FromQuery] double south,
+        [FromQuery] double west,
+        [FromQuery] double north,
+        [FromQuery] double east,
+        [FromQuery] int take = 200,
+        [FromQuery] string language = "tr",
+        CancellationToken cancellationToken = default)
+    {
+        var pins = await placeService.GetPinsInBoundsAsync(
+            new MapBounds(south, west, north, east), take, language, cancellationToken);
+
+        return Ok(ApiResponse<IReadOnlyList<PlacePinDto>>.Create(pins, Attribution.Places));
+    }
 }

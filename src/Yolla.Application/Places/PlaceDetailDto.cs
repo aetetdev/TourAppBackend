@@ -91,6 +91,15 @@ public sealed record NearbyPlaceDto
     /// <summary>Liste satırı için küçültülmüş görsel (500 piksel genişlik).</summary>
     public string? PhotoThumbUrl => CommonsThumbnail.Thumb(PhotoUrl);
 
+    /// <summary>Görselin yanında gösterilmesi zorunlu atıf satırı.</summary>
+    /// <remarks>
+    /// Commons görsellerinin çoğu CC BY-SA; fotoğrafçı adı ve lisans
+    /// gösterilmeden görsel kullanılamaz. Bu alan olmadan istemci fotoğrafı
+    /// çizemez, yalnızca metin gösterebilir.
+    /// </remarks>
+    /// <example>Fotoğraf: Brocken Inaglory (CC BY-SA 3.0)</example>
+    public string? PhotoAttribution { get; init; }
+
     /// <summary>Kuş uçuşu mesafe (metre).</summary>
     public required int DistanceMeters { get; init; }
 }
@@ -117,4 +126,21 @@ public interface IPlaceService
         int take = 20,
         string language = "tr",
         CancellationToken cancellationToken = default);
+
+    /// <summary>Haritanın görünen alanındaki yerleri işaret olarak döndürür.</summary>
+    Task<IReadOnlyList<PlacePinDto>> GetPinsInBoundsAsync(
+        MapBounds bounds,
+        int take = 200,
+        string language = "tr",
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Haritanın görünen alanı.
+/// </summary>
+/// <remarks>
+/// Türkiye boylam 180. meridyeni kesmediği için sarmalama durumu
+/// desteklenmiyor: <see cref="West"/> her zaman <see cref="East"/>'ten küçük
+/// olmalı. Aksi halde doğrulama hatası döner.
+/// </remarks>
+public sealed record MapBounds(double South, double West, double North, double East);

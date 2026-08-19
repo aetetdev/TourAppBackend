@@ -23,6 +23,16 @@ public sealed class PlaceService(YollaDbContext context, ICacheService cache) : 
     private const int MaxNearbyRadiusMeters = 20_000;
     private const int MaxNearbyTake = 50;
 
+    /// <summary>
+    /// Bir harita isteğinde dönebilecek en fazla işaret sayısı.
+    /// </summary>
+    /// <remarks>
+    /// Türkiye'nin tamamını kaplayan bir görünüm 50 binden fazla kayıt kesiyor;
+    /// tavan olmadan tek istek hem sunucuyu hem istemciyi kilitler. 300 işaret
+    /// bir telefon ekranında zaten okunabilirlik sınırının üstünde.
+    /// </remarks>
+    private const int MaxPinsInBounds = 300;
+
     public Task<PlaceDetailDto> GetByIdAsync(
         int placeId,
         string language = "tr",
@@ -106,6 +116,7 @@ public sealed class PlaceService(YollaDbContext context, ICacheService cache) : 
                 PhotoSource = x.PhotoSource,
                 DescriptionTr = x.DescriptionTr,
                 DescriptionEn = x.DescriptionEn,
+                CityId = x.CityId,
                 CityName = x.City.Name,
                 DistrictName = x.District != null ? x.District.Name : null,
                 Location = x.Location,
@@ -115,6 +126,85 @@ public sealed class PlaceService(YollaDbContext context, ICacheService cache) : 
             .ToListAsync(cancellationToken);
 
         return rows.Select(x => x.ToCard(isEnglish)).ToList();
+    }
+
+    public async Task<IReadOnlyList<PlacePinDto>> GetPinsInBoundsAsync(
+        MapBounds bounds,
+        int take = 200,
+        string language = "tr",
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bounds);
+
+        if (bounds.South is < -90 or > 90 || bounds.North is < -90 or > 90 ||
+            bounds.West is < -180 or > 180 || bounds.East is < -180 or > 180)
+        {
+            throw RequestValidationException.Single("bounds", "Geçersiz koordinat.");
+        }
+
+        if (bounds.South >= bounds.North || bounds.West >= bounds.East)
+        {
+            throw RequestValidationException.Single(
+                "bounds", "Güney kuzeyden, batı doğudan küçük olmalı.");
+        }
+
+        var limit = Math.Clamp(take, 1, MaxPinsInBounds);
+        var isEnglish = IsEnglish(language);
+
+        // Dikdörtgen, GIST indeksinin kullanılabilmesi için geometri olarak kuruluyor;
+        // enlem/boylam karşılaştırmasıyla yazılsaydı indeks devre dışı kalırdı.
+        var envelope = new Polygon(new LinearRing([
+            new Coordinate(bounds.West, bounds.South),
+            new Coordinate(bounds.East, bounds.South),
+            new Coordinate(bounds.East, bounds.North),
+            new Coordinate(bounds.West, bounds.North),
+            new Coordinate(bounds.West, bounds.South)
+        ]))
+        { SRID = 4326 };
+
+        // Fotoğrafsız yerler bilerek eleniyor değil: kullanıcıdan fotoğraf
+        // istemenin doğal yeri harita. Yalnızca feed eşiğinin altındaki
+        // (mahalle camisi, isimsiz tepe) kayıtlar dışarıda kalıyor.
+        //
+        // Sıralama kaliteye göre: geniş bir alanda sınıra takıldığımızda
+        // kullanıcıya rastgele bir avuç değil, en iyi yerler gösterilsin.
+        var rows = await context.Places
+            .AsNoTracking()
+            .Where(x => x.IsActive
+                        && x.Category.IsVisible
+                        && x.QualityScore >= PlaceQualityScorer.FeedThreshold
+                        && x.Location.Intersects(envelope))
+            .OrderByDescending(x => x.QualityScore)
+            .Take(limit)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                NameEn = x.NameEn,
+                x.Slug,
+                CategoryKey = x.Category.Key,
+                CategoryIcon = x.Category.Icon,
+                x.PhotoUrl,
+                x.PhotoAuthor,
+                x.PhotoLicense,
+                x.QualityScore,
+                x.Location
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(x => new PlacePinDto
+        {
+            Id = x.Id,
+            Name = isEnglish && !string.IsNullOrWhiteSpace(x.NameEn) ? x.NameEn! : x.Name,
+            Slug = x.Slug,
+            Latitude = x.Location.Y,
+            Longitude = x.Location.X,
+            CategoryKey = x.CategoryKey,
+            CategoryIcon = x.CategoryIcon,
+            // Atıf üçlüsü eksikse fotoğraf gösterilemez; "var" saymak yanlış olur.
+            HasPhoto = x.PhotoUrl != null && x.PhotoAuthor != null && x.PhotoLicense != null,
+            QualityScore = x.QualityScore
+        }).ToList();
     }
 
     private async Task<Place?> LoadAsync(
@@ -154,6 +244,8 @@ public sealed class PlaceService(YollaDbContext context, ICacheService cache) : 
                 CategoryNameTr = x.Category.NameTr,
                 CategoryNameEn = x.Category.NameEn,
                 x.PhotoUrl,
+                x.PhotoAuthor,
+                x.PhotoLicense,
                 Distance = x.Location.Distance(place.Location)
             })
             .ToListAsync(cancellationToken);
@@ -192,6 +284,7 @@ public sealed class PlaceService(YollaDbContext context, ICacheService cache) : 
                 Slug = x.Slug,
                 CategoryName = isEnglish ? x.CategoryNameEn : x.CategoryNameTr,
                 PhotoUrl = x.PhotoUrl,
+                PhotoAttribution = Attribution.ForPhoto(x.PhotoAuthor, x.PhotoLicense),
                 DistanceMeters = (int)Math.Round(x.Distance)
             }).ToList()
         };
@@ -239,6 +332,8 @@ public sealed class PlaceService(YollaDbContext context, ICacheService cache) : 
         public string? PhotoSource { get; init; }
         public string? DescriptionTr { get; init; }
         public string? DescriptionEn { get; init; }
+        public required int CityId { get; init; }
+
         public required string CityName { get; init; }
         public string? DistrictName { get; init; }
         public required Point Location { get; init; }
@@ -257,6 +352,7 @@ public sealed class PlaceService(YollaDbContext context, ICacheService cache) : 
             PhotoAttribution = Attribution.ForPhoto(PhotoAuthor, PhotoLicense) ?? string.Empty,
             PhotoSource = PhotoSource,
             Description = isEnglish ? DescriptionEn ?? DescriptionTr : DescriptionTr,
+            CityId = CityId,
             CityName = CityName,
             DistrictName = DistrictName,
             Latitude = Location.Y,
