@@ -61,6 +61,7 @@ public sealed class DiscoveryService(YollaDbContext context) : IDiscoveryService
                 PhotoSource = x.PhotoSource,
                 DescriptionTr = x.DescriptionTr,
                 DescriptionEn = x.DescriptionEn,
+                CityId = x.CityId,
                 CityName = x.City.Name,
                 DistrictName = x.District != null ? x.District.Name : null,
                 Location = x.Location,
@@ -137,6 +138,8 @@ public sealed class DiscoveryService(YollaDbContext context) : IDiscoveryService
         public string? PhotoSource { get; init; }
         public string? DescriptionTr { get; init; }
         public string? DescriptionEn { get; init; }
+        public required int CityId { get; init; }
+
         public required string CityName { get; init; }
         public string? DistrictName { get; init; }
 
@@ -165,6 +168,7 @@ public sealed class DiscoveryService(YollaDbContext context) : IDiscoveryService
                 PhotoAttribution = Attribution.ForPhoto(PhotoAuthor, PhotoLicense)!,
                 PhotoSource = PhotoSource,
                 Description = isEnglish ? DescriptionEn ?? DescriptionTr : DescriptionTr,
+                CityId = CityId,
                 CityName = CityName,
                 DistrictName = DistrictName,
                 Latitude = Location.Y,

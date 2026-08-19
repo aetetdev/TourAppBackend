@@ -64,6 +64,14 @@ public sealed record PlaceCardDto
     /// <summary>Kartta gösterilen kısa açıklama.</summary>
     public string? Description { get; init; }
 
+    /// <summary>Bulunduğu şehrin kimliği.</summary>
+    /// <remarks>
+    /// Beğenilen yerlerden doğrudan şehir içi plan kurulabilmesi için gerekli;
+    /// istemci şehir bilgisini ekranlar arasında taşımak zorunda kalmasın.
+    /// </remarks>
+    /// <example>106</example>
+    public required int CityId { get; init; }
+
     /// <summary>Bulunduğu şehir.</summary>
     /// <example>Nevşehir</example>
     public required string CityName { get; init; }

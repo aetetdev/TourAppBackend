@@ -146,6 +146,7 @@ public sealed class SwipeService(YollaDbContext context) : ISwipeService
                 x.Place.PhotoSource,
                 x.Place.DescriptionTr,
                 x.Place.DescriptionEn,
+                x.Place.CityId,
                 CityName = x.Place.City.Name,
                 DistrictName = x.Place.District != null ? x.Place.District.Name : null,
                 x.Place.Location,
@@ -158,6 +159,7 @@ public sealed class SwipeService(YollaDbContext context) : ISwipeService
             .Select(x => new PlaceCardDto
             {
                 Id = x.Id,
+                CityId = x.CityId,
                 Name = x.Name,
                 Slug = x.Slug,
                 CategoryKey = x.CategoryKey,

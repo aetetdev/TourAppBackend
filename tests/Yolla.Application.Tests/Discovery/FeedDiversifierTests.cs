@@ -126,6 +126,7 @@ public class FeedDiversifierTests
             CategoryName = key,
             PhotoUrl = "https://example.com/foto.jpg",
             PhotoAttribution = "Fotoğraf: Test (CC BY-SA 4.0)",
+            CityId = 1,
             CityName = "Test",
             Latitude = 39,
             Longitude = 35,
