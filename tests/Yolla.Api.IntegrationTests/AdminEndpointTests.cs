@@ -282,6 +282,72 @@ public class AdminEndpointTests(PostgisFixture fixture) : IAsyncLifetime
         yer.PhotoAuthor.ShouldNotBeNullOrWhiteSpace();
     }
 
+    [Fact]
+    public async Task Onay_kullaniciya_bildirim_birakiyor()
+    {
+        // Bildirim önce veritabanına yazılıyor; telefona iletim ayrı bir
+        // kanal ve teslimi garanti değil. Kayıt durduğu için kullanıcı
+        // uygulamayı açtığında olan biteni görüyor — asıl güvence bu.
+        var yerId = await FotografsizYerIdAsync();
+        var eposta = $"bildirim{Guid.NewGuid():N}@ornek.com";
+        var gonderen = await SignedInClientAsync(eposta);
+
+        using var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(TestPhoto()), "photo", "test.png");
+        form.Add(new StringContent(yerId.ToString()), "placeId");
+
+        var gonderim = await gonderen.PostAsync("/api/v1/rewards/fotograf", form);
+        gonderim.EnsureSuccessStatusCode();
+
+        var gonderiId = (await gonderim.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("data").GetProperty("id").GetInt32();
+
+        var oncekiSayi = await OkunmamisSayisiAsync(gonderen);
+
+        var onay = await _moderator.PostAsync($"/api/v1/moderation/{gonderiId}/onayla", null);
+        onay.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (await OkunmamisSayisiAsync(gonderen)).ShouldBe(oncekiSayi + 1);
+
+        var liste = await gonderen.GetAsync("/api/v1/bildirimler");
+        liste.EnsureSuccessStatusCode();
+
+        var bildirimler = (await liste.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("data");
+
+        bildirimler.GetArrayLength().ShouldBeGreaterThan(0);
+
+        var ilk = bildirimler[0];
+        ilk.GetProperty("kind").GetString().ShouldBe("PhotoApproved");
+        ilk.GetProperty("isRead").GetBoolean().ShouldBeFalse();
+        // Coin de metne girmiş olmalı; kullanıcı ne kazandığını görmeli.
+        ilk.GetProperty("body").GetString().ShouldContain("10");
+
+        // Liste açılınca rozet sıfırlanıyor.
+        var okundu = await gonderen.PostAsJsonAsync(
+            "/api/v1/bildirimler/okundu", new { ids = (int[]?)null });
+        okundu.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (await OkunmamisSayisiAsync(gonderen)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Bildirimler_hesap_istiyor()
+    {
+        var response = await _client.GetAsync("/api/v1/bildirimler");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    private static async Task<int> OkunmamisSayisiAsync(HttpClient client)
+    {
+        var response = await client.GetAsync("/api/v1/bildirimler/okunmamis");
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("data").GetInt32();
+    }
+
     private async Task<int> FotografsizYerIdAsync()
     {
         var liste = await OkuAsync("/api/v1/admin/fotografsiz-yerler?take=1");

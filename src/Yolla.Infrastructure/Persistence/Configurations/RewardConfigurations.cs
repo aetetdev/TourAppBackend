@@ -54,6 +54,24 @@ public class CoinEntryConfiguration : IEntityTypeConfiguration<CoinEntry>
     }
 }
 
+public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
+{
+    public void Configure(EntityTypeBuilder<Notification> builder)
+    {
+        builder.Property(x => x.Title).HasMaxLength(120).IsRequired();
+        builder.Property(x => x.Body).HasMaxLength(500).IsRequired();
+        builder.Property(x => x.Language).HasMaxLength(5).IsRequired();
+
+        // Liste "benim bildirimlerim, yeniden eskiye" diye okunuyor.
+        builder.HasIndex(x => new { x.UserId, x.CreatedAt });
+
+        // Okunmamış sayısı her açılışta sorulabiliyor; kısmi indeks tabloyu
+        // taramasını engelliyor.
+        builder.HasIndex(x => x.UserId)
+            .HasFilter("read_at IS NULL");
+    }
+}
+
 public class PlaceSuggestionConfiguration : IEntityTypeConfiguration<PlaceSuggestion>
 {
     public void Configure(EntityTypeBuilder<PlaceSuggestion> builder)

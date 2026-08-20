@@ -43,6 +43,17 @@ public interface IDeviceSessionService
     /// <summary>
     /// Cihazı kaydeder veya mevcut kaydı günceller ve erişim jetonu üretir.
     /// </summary>
+    /// <summary>Cihazın bildirim jetonunu kaydeder; boş değer siler.</summary>
+    /// <remarks>
+    /// Jeton uygulama silinince ya da yenilenince geçersizleşiyor. Ölü jetonu
+    /// tutmak her bildirimde boşuna bir istek demek, o yüzden gönderim
+    /// başarısız olduğunda da temizleniyor.
+    /// </remarks>
+    Task SetPushTokenAsync(
+        int deviceId,
+        string? token,
+        CancellationToken cancellationToken = default);
+
     Task<DeviceSessionDto> RegisterAsync(
         DeviceRegistrationRequest request,
         CancellationToken cancellationToken = default);

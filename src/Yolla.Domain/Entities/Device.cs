@@ -21,6 +21,19 @@ public class Device : BaseEntity
 
     public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
 
+    /// <summary>
+    /// Telefona bildirim göndermek için kullanılan jeton.
+    /// </summary>
+    /// <remarks>
+    /// Uygulama izin verildikten sonra gönderiyor; izin verilmezse boş
+    /// kalıyor. Jeton uygulama silinince ya da yenilenince geçersizleşiyor,
+    /// gönderim başarısız olunca temizleniyor — ölü jetona her bildirimde
+    /// boşuna istek atmamak için.
+    /// </remarks>
+    public string? PushToken { get; set; }
+
+    public DateTimeOffset? PushTokenUpdatedAt { get; set; }
+
     public ICollection<Trip> Trips { get; set; } = [];
 
     public ICollection<Swipe> Swipes { get; set; } = [];

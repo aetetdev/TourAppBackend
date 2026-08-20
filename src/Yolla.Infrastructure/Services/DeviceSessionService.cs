@@ -99,6 +99,35 @@ public sealed class DeviceSessionService(YollaDbContext context, ITokenGenerator
         }
     }
 
+    public async Task SetPushTokenAsync(
+        int deviceId,
+        string? token,
+        CancellationToken cancellationToken = default)
+    {
+        var temiz = token?.Trim();
+        temiz = string.IsNullOrEmpty(temiz) ? null : temiz;
+
+        // Aynı jeton başka bir cihazda kayıtlıysa oradan siliniyor: aynı
+        // telefonu iki hesapla kullanan biri bildirimleri yanlış hesaptan
+        // almasın.
+        if (temiz is not null)
+        {
+            await context.Devices
+                .Where(x => x.Id != deviceId && x.PushToken == temiz)
+                .ExecuteUpdateAsync(
+                    x => x.SetProperty(d => d.PushToken, (string?)null),
+                    cancellationToken);
+        }
+
+        await context.Devices
+            .Where(x => x.Id == deviceId)
+            .ExecuteUpdateAsync(
+                x => x
+                    .SetProperty(d => d.PushToken, temiz)
+                    .SetProperty(d => d.PushTokenUpdatedAt, DateTimeOffset.UtcNow),
+                cancellationToken);
+    }
+
     private static string NormalizeLanguage(string? language)
     {
         var value = language?.Trim().ToLowerInvariant();

@@ -27,6 +27,7 @@ public class YollaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<in
     public DbSet<Swipe> Swipes => Set<Swipe>();
     public DbSet<PhotoSubmission> PhotoSubmissions => Set<PhotoSubmission>();
     public DbSet<PlaceSuggestion> PlaceSuggestions => Set<PlaceSuggestion>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<CoinEntry> CoinEntries => Set<CoinEntry>();
     public DbSet<PremiumGrant> PremiumGrants => Set<PremiumGrant>();
 

@@ -3,6 +3,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
 using Yolla.Application.Common;
+using Yolla.Application.Notifications;
 using Yolla.Application.Rewards;
 using Yolla.Domain.Entities;
 using Yolla.Domain.Enums;
@@ -14,7 +15,8 @@ namespace Yolla.Infrastructure.Services;
 public sealed class RewardService(
     YollaDbContext context,
     IPhotoStorage storage,
-    ICacheService cache) : IRewardService
+    ICacheService cache,
+    INotificationService notifications) : IRewardService
 {
     public async Task<PhotoSubmissionDto> SubmitPhotoAsync(
         int userId,
@@ -367,6 +369,17 @@ public sealed class RewardService(
         // görünmez.
         await cache.RemoveAsync(CacheKeys.PlaceDetail(submission.PlaceId, "tr"), cancellationToken);
         await cache.RemoveAsync(CacheKeys.PlaceDetail(submission.PlaceId, "en"), cancellationToken);
+
+        await notifications.CreateAsync(
+            submission.UserId,
+            NotificationKind.PhotoApproved,
+            new NotificationContext
+            {
+                PlaceName = target.Name,
+                PlaceId = submission.PlaceId,
+                Coins = RewardRules.CoinsPerApprovedPhoto
+            },
+            cancellationToken);
     }
 
     public async Task RejectAsync(
@@ -377,7 +390,10 @@ public sealed class RewardService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
 
+        // Yer de çekiliyor: bildirimde hangi yerin fotoğrafı olduğu yazıyor,
+        // yoksa kullanıcı hangi gönderisinin reddedildiğini anlamıyor.
         var submission = await context.PhotoSubmissions
+            .Include(x => x.Place)
             .FirstOrDefaultAsync(x => x.Id == submissionId, cancellationToken)
             ?? throw new NotFoundException("Gönderi", submissionId);
 
@@ -398,6 +414,19 @@ public sealed class RewardService(
         // Dosya siliniyor: reddedilen içerik diskte durmasın. Kayıt kalıyor,
         // aynı kullanıcı aynı yere tekrar tekrar göndermesin diye.
         await storage.DeleteAsync(submission.StoragePath, cancellationToken);
+
+        // Sebep bildirime giriyor: "reddedildi" deyip bırakmak kullanıcıyı
+        // aynı hatayı tekrar yapmaya bırakıyor.
+        await notifications.CreateAsync(
+            submission.UserId,
+            NotificationKind.PhotoRejected,
+            new NotificationContext
+            {
+                PlaceName = submission.Place.Name,
+                PlaceId = submission.PlaceId,
+                Reason = submission.RejectionReason
+            },
+            cancellationToken);
     }
 
     private Task<int> GetBalanceAsync(int userId, CancellationToken cancellationToken) =>

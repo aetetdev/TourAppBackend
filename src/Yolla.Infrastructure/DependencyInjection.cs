@@ -10,6 +10,7 @@ using Yolla.Application.Common;
 using Yolla.Application.Content;
 using Yolla.Application.Discovery;
 using Yolla.Application.Geo;
+using Yolla.Application.Notifications;
 using Yolla.Application.Places;
 using Yolla.Application.Rewards;
 using Yolla.Application.Routing;
@@ -152,6 +153,12 @@ public static class DependencyInjection
 
         // İçerik ekibinin doğrudan eklediği fotoğraf ve yerler.
         services.AddScoped<IAdminContentService, AdminContentService>();
+
+        // Bildirimler. Kayıt her zaman veritabanına yazılıyor; telefona
+        // iletim ayrı bir kanal ve sağlayıcı yapılandırılmadıysa yalnızca
+        // günlüğe düşüyor — bildirim yine listede duruyor.
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IPushSender, LoggingPushSender>();
 
         services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
 

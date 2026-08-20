@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Yolla.Api.Extensions;
 using Yolla.Application.Auth;
 using Yolla.Application.Common;
 
@@ -45,4 +47,37 @@ public sealed class DevicesController(IDeviceSessionService deviceSessionService
 
         return Ok(ApiResponse<DeviceSessionDto>.Create(session));
     }
+
+    /// <summary>Bildirim jetonunu kaydeder.</summary>
+    /// <remarks>
+    /// Uygulama bildirim izni verildikten sonra çağırıyor. Jeton uygulama
+    /// silinince ya da yenilenince geçersizleşiyor; gönderim başarısız
+    /// olduğunda sunucu kendisi temizliyor.
+    ///
+    /// Boş gövde göndermek jetonu siler — kullanıcı bildirimleri kapattığında
+    /// kullanılıyor.
+    /// </remarks>
+    /// <response code="204">Kaydedildi.</response>
+    /// <response code="401">Cihaz jetonu gerekli.</response>
+    [Authorize]
+    [HttpPut("bildirim-jetonu")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetPushToken(
+        [FromBody] PushTokenRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await deviceSessionService.SetPushTokenAsync(
+            User.GetDeviceId(), request.Token, cancellationToken);
+
+        return NoContent();
+    }
+}
+
+/// <summary>Bildirim jetonu isteği.</summary>
+public sealed class PushTokenRequest
+{
+    /// <summary>Sağlayıcının verdiği jeton; boş bırakmak siler.</summary>
+    public string? Token { get; init; }
 }

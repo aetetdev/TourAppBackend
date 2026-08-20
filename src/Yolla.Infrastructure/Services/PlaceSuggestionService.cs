@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using Yolla.Application.Common;
+using Yolla.Application.Notifications;
 using Yolla.Application.Places;
 using Yolla.Application.Rewards;
 using Yolla.Domain.Entities;
@@ -10,7 +11,9 @@ using Yolla.Infrastructure.Persistence;
 namespace Yolla.Infrastructure.Services;
 
 /// <inheritdoc cref="IPlaceSuggestionService"/>
-public sealed class PlaceSuggestionService(YollaDbContext context) : IPlaceSuggestionService
+public sealed class PlaceSuggestionService(
+    YollaDbContext context,
+    INotificationService notifications) : IPlaceSuggestionService
 {
     /// <summary>Moderatöre gösterilecek yakın kayıtların yarıçapı (metre).</summary>
     private const double NearbyRadiusMeters = 1000;
@@ -326,6 +329,17 @@ public sealed class PlaceSuggestionService(YollaDbContext context) : IPlaceSugge
         });
 
         await context.SaveChangesAsync(cancellationToken);
+
+        await notifications.CreateAsync(
+            suggestion.UserId,
+            NotificationKind.SuggestionApproved,
+            new NotificationContext
+            {
+                PlaceName = suggestion.Name,
+                PlaceId = place.Id,
+                Coins = RewardRules.CoinsPerApprovedSuggestion
+            },
+            cancellationToken);
     }
 
     public async Task RejectAsync(
@@ -351,6 +365,16 @@ public sealed class PlaceSuggestionService(YollaDbContext context) : IPlaceSugge
         suggestion.UpdatedAt = DateTimeOffset.UtcNow;
 
         await context.SaveChangesAsync(cancellationToken);
+
+        await notifications.CreateAsync(
+            suggestion.UserId,
+            NotificationKind.SuggestionRejected,
+            new NotificationContext
+            {
+                PlaceName = suggestion.Name,
+                Reason = suggestion.RejectionReason
+            },
+            cancellationToken);
     }
 
     /// <summary>
