@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Yolla.Api.Extensions;
 using Yolla.Application.Admin;
 using Yolla.Application.Common;
+using Yolla.Application.Rewards;
 
 namespace Yolla.Api.Controllers;
 
@@ -20,7 +22,9 @@ namespace Yolla.Api.Controllers;
 [Route("api/v1/admin")]
 [Produces("application/json")]
 [Authorize(Roles = ModerationController.ModeratorRole)]
-public sealed class AdminController(IAdminAnalyticsService analytics) : ControllerBase
+public sealed class AdminController(
+    IAdminAnalyticsService analytics,
+    IAdminContentService content) : ControllerBase
 {
     /// <summary>Panonun üst şeridi: kullanıcı, içerik, kullanım ve kuyruk sayıları.</summary>
     /// <response code="200">Özet.</response>
@@ -91,4 +95,97 @@ public sealed class AdminController(IAdminAnalyticsService analytics) : Controll
 
         return Ok(ApiResponse<MembershipDto>.Create(uyelik));
     }
+
+    /// <summary>Fotoğrafı olmayan yerler; içerik ekibinin iş listesi.</summary>
+    /// <remarks>Kaliteli olanlar önce: bir fotoğraf eklendiğinde doğrudan
+    /// kart destesine giren kayıtlar ekibin zamanını en iyi değerlendiriyor.</remarks>
+    /// <response code="200">Yerler.</response>
+    [HttpGet("fotografsiz-yerler")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<MissingPhotoDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPlacesMissingPhoto(
+        [FromQuery] int? cityId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int take = 30,
+        CancellationToken cancellationToken = default)
+    {
+        var yerler = await content.GetPlacesMissingPhotoAsync(
+            cityId, search, take, cancellationToken);
+
+        return Ok(ApiResponse<IReadOnlyList<MissingPhotoDto>>.Create(yerler));
+    }
+
+    /// <summary>Bir yere doğrudan fotoğraf ekler.</summary>
+    /// <remarks>
+    /// `multipart/form-data`. Kullanıcı gönderisinden farkı moderasyondan
+    /// geçmemesi: ekip zaten moderasyonun kendisi. Fotoğraf sunucuda JPEG'e
+    /// çevriliyor, 1920 piksele indiriliyor ve EXIF'i (konum dahil)
+    /// siliniyor.
+    ///
+    /// Fotoğrafı çekenin adı zorunlu; görselin yanında atıf olarak
+    /// gösteriliyor.
+    /// </remarks>
+    /// <response code="204">Eklendi ve yayına girdi.</response>
+    /// <response code="400">Dosya okunamadı, çok küçük ya da ad boş.</response>
+    /// <response code="404">Yer yok.</response>
+    [HttpPost("yerler/{placeId:int}/fotograf")]
+    [RequestSizeLimit(RewardRules.MaxPhotoBytes)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> AddPhoto(
+        int placeId,
+        IFormFile photo,
+        [FromForm] string photographerName,
+        [FromForm] string? license = null,
+        [FromForm] string? sourceUrl = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (photo is null || photo.Length == 0)
+        {
+            throw RequestValidationException.Single("photo", "Fotoğraf gerekli.");
+        }
+
+        await using var stream = photo.OpenReadStream();
+
+        await content.AddPhotoAsync(
+            placeId,
+            new AddPhotoRequest
+            {
+                PhotographerName = photographerName,
+                License = license,
+                SourceUrl = sourceUrl
+            },
+            stream,
+            RequireUserId(),
+            cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>Kataloğa doğrudan yeni yer ekler.</summary>
+    /// <remarks>
+    /// Kullanıcı önerisinden farkı kuyruğa düşmemesi ve kalite puanının
+    /// daha yüksek başlaması: ekip kaydı doğrulayarak giriyor.
+    /// </remarks>
+    /// <response code="201">Eklendi.</response>
+    /// <response code="400">Ad, kategori ya da konum geçersiz.</response>
+    [HttpPost("yerler")]
+    [ProducesResponseType(typeof(ApiResponse<CreatedPlaceDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreatePlace(
+        [FromBody] CreatePlaceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var created = await content.CreatePlaceAsync(
+            request, RequireUserId(), cancellationToken);
+
+        return CreatedAtAction(
+            nameof(GetPlacesMissingPhoto),
+            null,
+            ApiResponse<CreatedPlaceDto>.Create(created));
+    }
+
+    private int RequireUserId() =>
+        User.GetUserId()
+        ?? throw RequestValidationException.Single(
+            "account", "Bu işlem için hesap gerekli.");
 }

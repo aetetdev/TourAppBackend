@@ -175,7 +175,7 @@ function kartCiz(oge) {
     <div>
       <h2>${oge.placeName}</h2>
       <p class="satir">${oge.cityName || ''} · yer #${oge.placeId}</p>
-      <p class="satir">Gönderen: ${oge.userEmail || 'kullanıcı #' + oge.userId}</p>
+      <p class="satir">Gönderen: kullanıcı #${oge.userId}</p>
       <p class="satir ${supheli ? 'uyari' : ''}">
         Geçmiş: ${oge.userApprovedCount} onay · ${oge.userRejectedCount} red
       </p>

@@ -150,6 +150,9 @@ public static class DependencyInjection
         // veri taşımıyor.
         services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 
+        // İçerik ekibinin doğrudan eklediği fotoğraf ve yerler.
+        services.AddScoped<IAdminContentService, AdminContentService>();
+
         services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
 
         // Rota motoru istemcisi havuzdan yönetilir; her istekte yeni bağlantı açmak

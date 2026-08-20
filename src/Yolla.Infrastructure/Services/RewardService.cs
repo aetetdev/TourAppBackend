@@ -16,16 +16,6 @@ public sealed class RewardService(
     IPhotoStorage storage,
     ICacheService cache) : IRewardService
 {
-    /// <summary>
-    /// Gönderilen fotoğrafın kaydedileceği en büyük kenar.
-    /// </summary>
-    /// <remarks>
-    /// Telefon fotoğrafları 12 MP ve üstü geliyor. Kart olarak en fazla
-    /// 1920 px kullanılıyor; ham dosyayı saklamak diski boşuna doldurur ve
-    /// moderasyon sayfasını yavaşlatır.
-    /// </remarks>
-    private const int MaxStoredEdge = 1920;
-
     public async Task<PhotoSubmissionDto> SubmitPhotoAsync(
         int userId,
         int? deviceId,
@@ -68,13 +58,11 @@ public sealed class RewardService(
                 "placeId", "Bu yer için bekleyen bir gönderin zaten var.");
         }
 
-        using var image = await LoadAndNormalizeAsync(content, cancellationToken);
+        using var image = await PhotoNormalizer.LoadAsync(content, cancellationToken);
 
         var relativePath = $"submissions/{userId}/{Guid.NewGuid():N}.jpg";
 
-        using var buffer = new MemoryStream();
-        await image.SaveAsync(buffer, new JpegEncoder { Quality = 82 }, cancellationToken);
-        buffer.Position = 0;
+        using var buffer = await PhotoNormalizer.ToJpegAsync(image, cancellationToken);
 
         await storage.SaveAsync(relativePath, buffer, cancellationToken);
 
@@ -98,46 +86,6 @@ public sealed class RewardService(
     }
 
     /// <summary>Gönderiyi okur, doğrular ve saklanacak boyuta indirir.</summary>
-    private async Task<Image> LoadAndNormalizeAsync(
-        Stream content,
-        CancellationToken cancellationToken)
-    {
-        Image image;
-        try
-        {
-            image = await Image.LoadAsync(content, cancellationToken);
-        }
-        catch (UnknownImageFormatException)
-        {
-            throw RequestValidationException.Single(
-                "photo", "Dosya okunamadı; JPEG veya PNG bir fotoğraf gönder.");
-        }
-
-        if (image.Width < RewardRules.MinPhotoEdge && image.Height < RewardRules.MinPhotoEdge)
-        {
-            image.Dispose();
-            throw RequestValidationException.Single(
-                "photo",
-                $"Fotoğraf çok küçük. Kısa kenarı en az {RewardRules.MinPhotoEdge} piksel olmalı.");
-        }
-
-        if (image.Width > MaxStoredEdge || image.Height > MaxStoredEdge)
-        {
-            image.Mutate(x => x.Resize(new ResizeOptions
-            {
-                Mode = ResizeMode.Max,
-                Size = new Size(MaxStoredEdge, MaxStoredEdge)
-            }));
-        }
-
-        // EXIF yönü uygulanıp temizleniyor: telefon fotoğrafları yan
-        // görünmesin, konum bilgisi de dosyayla birlikte yayına çıkmasın.
-        image.Mutate(x => x.AutoOrient());
-        image.Metadata.ExifProfile = null;
-
-        return image;
-    }
-
     public async Task<IReadOnlyList<PhotoSubmissionDto>> GetMySubmissionsAsync(
         int userId,
         CancellationToken cancellationToken = default)
@@ -315,14 +263,9 @@ public sealed class RewardService(
 
         var userIds = rows.Select(x => x.UserId).Distinct().ToList();
 
-        var emails = await context.Users
-            .AsNoTracking()
-            .Where(x => userIds.Contains(x.Id))
-            .Select(x => new { x.Id, x.Email })
-            .ToDictionaryAsync(x => x.Id, x => x.Email, cancellationToken);
-
         // Gönderenin geçmişi: aynı kişi sürekli reddediliyorsa inceleyen
-        // bunu görüp daha dikkatli baksın.
+        // bunu görüp daha dikkatli baksın. Kimlik bilgisi çekilmiyor —
+        // karar için gereken şey geçmiş, kim olduğu değil.
         var history = await context.PhotoSubmissions
             .AsNoTracking()
             .Where(x => userIds.Contains(x.UserId)
@@ -343,7 +286,6 @@ public sealed class RewardService(
             Height = x.Height,
             SizeBytes = x.SizeBytes,
             UserId = x.UserId,
-            UserEmail = emails.GetValueOrDefault(x.UserId),
             UserApprovedCount = history
                 .Where(h => h.UserId == x.UserId
                             && h.Status == PhotoSubmissionStatus.Approved)
@@ -385,6 +327,21 @@ public sealed class RewardService(
         };
 
         context.PlaceContributions.Add(contribution);
+
+        // Katkı **yere işleniyor**. Eskiden yalnızca katkı satırı yazılıyordu
+        // ve hiçbir yer o satırı okumuyordu: onaylanan fotoğraf hiçbir
+        // ekranda görünmüyor, yer fotoğrafsız sayılmaya devam ediyor ve kart
+        // destesine hâlâ giremiyordu. Kullanıcı coinini alıyor, katkısı
+        // görünmüyordu.
+        //
+        // Puan da burada yeniden hesaplanıyor: fotoğrafı gelen yer destenin
+        // eşiğini geçebilsin.
+        var target = await context.Places
+            .Include(x => x.Category)
+            .FirstAsync(x => x.Id == submission.PlaceId, cancellationToken);
+
+        ContributionApplier.Apply(target, contribution);
+
         await context.SaveChangesAsync(cancellationToken);
 
         submission.Status = PhotoSubmissionStatus.Approved;

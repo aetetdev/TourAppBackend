@@ -35,8 +35,16 @@ public sealed class ModerationItemDto
     public int Height { get; init; }
     public long SizeBytes { get; init; }
 
+    /// <summary>
+    /// Gönderen; yalnızca kimlik numarasıyla.
+    /// </summary>
+    /// <remarks>
+    /// E-posta bilinçli olarak taşınmıyor. Moderatörün karar vermek için
+    /// kimliğe ihtiyacı yok — tekrar eden kötüye kullanımı onay/red geçmişi
+    /// gösteriyor. Veriyi göndermemek, gönderip ekranda gizlemekten farklı:
+    /// yanıt gövdesi tarayıcı geçmişinde ve günlüklerde kalıyor.
+    /// </remarks>
     public int UserId { get; init; }
-    public string? UserEmail { get; init; }
 
     /// <summary>Aynı kullanıcının daha önce kaç gönderisi onaylandı /
     /// reddedildi. Tekrar eden kötüye kullanımı görmek için.</summary>

@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { jeton, yetkiDusunce } from './api/client';
 import { Kabuk } from './Kabuk';
+import { FotografEkle } from './pages/FotografEkle';
+import { FotografKuyrugu } from './pages/FotografKuyrugu';
 import { GenelBakis } from './pages/GenelBakis';
 import { Giris } from './pages/Giris';
 import { Rotalar } from './pages/Rotalar';
 import { Sehirler } from './pages/Sehirler';
 import { Uyelik } from './pages/Uyelik';
-import { Yapim } from './pages/Yapim';
+import { YerEkle } from './pages/YerEkle';
+import { YerOnerileri } from './pages/YerOnerileri';
 import { Yerler } from './pages/Yerler';
 
 export default function App() {
@@ -30,19 +33,10 @@ export default function App() {
           <Route path="yerler" element={<Yerler />} />
           <Route path="rotalar" element={<Rotalar />} />
           <Route path="uyelik" element={<Uyelik />} />
-          <Route
-            path="moderasyon/fotograflar"
-            element={<Yapim ad="Fotoğraf kuyruğu" />}
-          />
-          <Route
-            path="moderasyon/yerler"
-            element={<Yapim ad="Yer önerileri" />}
-          />
-          <Route
-            path="icerik/fotograf-ekle"
-            element={<Yapim ad="Fotoğraf ekle" />}
-          />
-          <Route path="icerik/yer-ekle" element={<Yapim ad="Yer ekle" />} />
+          <Route path="moderasyon/fotograflar" element={<FotografKuyrugu />} />
+          <Route path="moderasyon/yerler" element={<YerOnerileri />} />
+          <Route path="icerik/fotograf-ekle" element={<FotografEkle />} />
+          <Route path="icerik/yer-ekle" element={<YerEkle />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

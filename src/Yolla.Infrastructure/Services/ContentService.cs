@@ -59,7 +59,7 @@ public sealed class ContentService(YollaDbContext context, ICacheService cache) 
         existing.Note = request.Note?.Trim();
         existing.IsPublished = true;
 
-        ApplyToPlace(place, existing);
+        ContributionApplier.Apply(place, existing);
 
         await context.SaveChangesAsync(cancellationToken);
 
@@ -92,7 +92,7 @@ public sealed class ContentService(YollaDbContext context, ICacheService cache) 
         contribution.IsPublished = false;
 
         // Yerin içeriği otomatik kaynaklara döner; elle girilen değer temizlenir
-        RevertFromPlace(contribution.Place, contribution);
+        ContributionApplier.Revert(contribution.Place, contribution);
 
         await context.SaveChangesAsync(cancellationToken);
 
@@ -164,86 +164,6 @@ public sealed class ContentService(YollaDbContext context, ICacheService cache) 
             Longitude = x.Location.X
         }).ToList();
     }
-
-    /// <summary>
-    /// Katkıyı yerin gösterilen alanlarına yansıtır ve kalite puanını yeniden hesaplar.
-    /// </summary>
-    private static void ApplyToPlace(Place place, PlaceContribution contribution)
-    {
-        switch (contribution.Type)
-        {
-            case ContributionType.Photo:
-                place.PhotoUrl = contribution.Value;
-                place.PhotoAuthor = contribution.Author ?? OwnLicense;
-                place.PhotoLicense = contribution.License ?? OwnLicense;
-                place.PhotoSource = contribution.SourceUrl;
-                break;
-
-            case ContributionType.Description:
-                if (contribution.Language == "en")
-                {
-                    place.DescriptionEn = contribution.Value;
-                }
-                else
-                {
-                    place.DescriptionTr = contribution.Value;
-                }
-
-                break;
-
-            case ContributionType.VisitDuration:
-                if (short.TryParse(contribution.Value, NumberStyles.Integer,
-                        CultureInfo.InvariantCulture, out var minutes))
-                {
-                    place.AvgVisitMinutes = minutes;
-                }
-
-                break;
-        }
-
-        Rescore(place);
-    }
-
-    private static void RevertFromPlace(Place place, PlaceContribution contribution)
-    {
-        switch (contribution.Type)
-        {
-            case ContributionType.Photo when place.PhotoUrl == contribution.Value:
-                place.PhotoUrl = null;
-                place.PhotoAuthor = null;
-                place.PhotoLicense = null;
-                place.PhotoSource = null;
-                break;
-
-            case ContributionType.Description when contribution.Language == "en":
-                place.DescriptionEn = null;
-                break;
-
-            case ContributionType.Description:
-                place.DescriptionTr = null;
-                break;
-
-            case ContributionType.VisitDuration:
-                place.AvgVisitMinutes = null;
-                break;
-        }
-
-        Rescore(place);
-    }
-
-    private static void Rescore(Place place) =>
-        place.QualityScore = PlaceQualityScorer.Score(new PlaceQualityInput
-        {
-            Name = place.Name,
-            HasWikidata = place.WikidataId is not null,
-            HasPhoto = place.PhotoUrl is not null,
-            HasWikipedia = place.WikipediaTitle is not null,
-            HasDescription = place.DescriptionTr is not null,
-            HasNameEn = place.NameEn is not null,
-            HasWebsite = place.Website is not null,
-            HasOpeningHours = place.OpeningHours is not null,
-            CategoryWeight = place.Category?.Weight ?? 0
-        });
 
     private static void Validate(ContributionRequest request)
     {

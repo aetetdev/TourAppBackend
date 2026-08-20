@@ -78,3 +78,66 @@ export interface Uyelik {
   coinsOutstanding: number;
   coinsByReason: AdSayi[];
 }
+
+/** Moderasyon kuyruğundaki fotoğraf gönderisi. */
+export interface FotoGonderi {
+  id: number;
+  placeId: number;
+  placeName: string;
+  cityName?: string;
+  existingPhotoUrl?: string;
+  url: string;
+  width: number;
+  height: number;
+  sizeBytes: number;
+  userId: number;
+  userApprovedCount: number;
+  userRejectedCount: number;
+  createdAt: string;
+}
+
+/** Öneriye yakın, katalogda kayıtlı yer. */
+export interface YakinYer {
+  id: number;
+  name: string;
+  categoryName: string;
+  distanceMeters: number;
+}
+
+/** Moderasyon kuyruğundaki yer önerisi. */
+export interface YerOnerisi {
+  id: number;
+  name: string;
+  categoryName: string;
+  cityName: string;
+  districtName?: string;
+  latitude: number;
+  longitude: number;
+  description?: string;
+  address?: string;
+  userId: number;
+  userApprovedCount: number;
+  nearby: YakinYer[];
+  createdAt: string;
+}
+
+/** Fotoğraf bekleyen yer. */
+export interface FotografsizYer {
+  placeId: number;
+  name: string;
+  cityName: string;
+  districtName?: string;
+  categoryName: string;
+  qualityScore: number;
+  hasDescription: boolean;
+  latitude: number;
+  longitude: number;
+  wikidataId?: string;
+}
+
+/** Öneri kurulurken seçilebilecek kategori. */
+export interface Kategori {
+  key: string;
+  name: string;
+  icon?: string;
+}
