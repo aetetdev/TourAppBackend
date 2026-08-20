@@ -1,0 +1,235 @@
+/*
+ * Panelin görsel dili uygulamayla aynı: aynı kâğıt zemini, aynı marka
+ * turuncusu, aynı koyu yeşil vurgu. Ayrı bir tasarım dili kurmak yerine
+ * mobil temanın renkleri buraya taşındı.
+ */
+:root {
+  --kagit: #f7f5f2;
+  --yuzey: #ffffff;
+  --kenar: #e2dcd5;
+  --murekkep: #17110e;
+  --sonuk: #6b615b;
+  --marka: #d9542b;
+  --marka-soft: #fbeae3;
+  --vurgu: #0f5257;
+  --vurgu-soft: #ddedec;
+  --onay: #1f9d74;
+  --red: #c0392b;
+  --uyari: #c98a1b;
+
+  --yuvarlak: 12px;
+  --golge: 0 1px 2px rgb(23 17 14 / 6%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--kagit);
+  color: var(--murekkep);
+  font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+a {
+  color: var(--marka);
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+/* ---------- Giriş ---------- */
+
+.giris-sayfa {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.giris-kart {
+  width: min(360px, 100%);
+  background: var(--yuzey);
+  border: 1px solid var(--kenar);
+  border-radius: var(--yuvarlak);
+  padding: 28px;
+  box-shadow: var(--golge);
+}
+
+.giris-kart .marka {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+/* ---------- Kabuk ---------- */
+
+.kabuk {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  min-height: 100vh;
+}
+
+.yan {
+  background: var(--yuzey);
+  border-right: 1px solid var(--kenar);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.yan .marka {
+  font-size: 20px;
+  font-weight: 700;
+  padding: 4px 10px 16px;
+  letter-spacing: 0.5px;
+}
+
+.yan .baslik {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--sonuk);
+  padding: 14px 10px 6px;
+}
+
+.yan a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--murekkep);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.yan a:hover {
+  background: var(--kagit);
+}
+
+.yan a.etkin {
+  background: var(--vurgu-soft);
+  color: var(--vurgu);
+  font-weight: 600;
+}
+
+.yan .rozet {
+  margin-left: auto;
+  background: var(--marka);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.icerik {
+  padding: 28px 32px;
+  max-width: 1180px;
+}
+
+.sayfa-basligi {
+  margin-bottom: 22px;
+}
+
+.sayfa-basligi p {
+  color: var(--sonuk);
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ---------- Ortak parçalar ---------- */
+
+.kart {
+  background: var(--yuzey);
+  border: 1px solid var(--kenar);
+  border-radius: var(--yuvarlak);
+  padding: 18px;
+  box-shadow: var(--golge);
+}
+
+.izgara {
+  display: grid;
+  gap: 16px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--kenar);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--yuzey);
+  color: inherit;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sonuk);
+  margin: 12px 0 4px;
+}
+
+button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--marka);
+  color: #fff;
+}
+
+button.ikincil {
+  background: var(--yuzey);
+  color: var(--murekkep);
+  border: 1px solid var(--kenar);
+}
+
+button.onay {
+  background: var(--onay);
+}
+
+button.red {
+  background: var(--red);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tam {
+  width: 100%;
+}
+
+.hata {
+  color: var(--red);
+  font-size: 13px;
+  margin: 10px 0 0;
+}
+
+.sonuk {
+  color: var(--sonuk);
+}
+
+.bos {
+  text-align: center;
+  color: var(--sonuk);
+  padding: 56px 0;
+}

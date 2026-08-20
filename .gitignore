@@ -493,3 +493,10 @@ osrm/
 
 # Yerel ortam değişkenleri
 .env
+
+# Yönetim paneli (React) derleme çıktısı ve bağımlılıkları.
+# Panel API'nin içinden servis ediliyor ama çıktı derlemede üretiliyor;
+# depoda tutulursa her derlemede gereksiz fark çıkıyor.
+src/Yolla.Api/wwwroot/admin/
+src/Yolla.Admin/node_modules/
+src/Yolla.Admin/dist/

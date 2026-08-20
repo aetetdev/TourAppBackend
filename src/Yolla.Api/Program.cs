@@ -187,6 +187,17 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.MapControllers();
 
+// Yönetim paneli (React) `wwwroot/admin` altından servis ediliyor.
+//
+// Yönlendirme istemci tarafında olduğu için `/admin/sehirler` gibi adresler
+// diskte karşılıksız: doğrudan açıldıklarında ya da sayfa yenilendiğinde 404
+// dönerdi. Panelin bütün alt yolları `index.html`'e düşürülüyor, gerisini
+// tarayıcıdaki yönlendirici hallediyor.
+//
+// `/api` bu kuralın dışında: `MapControllers` daha önce eşleştiği için
+// buraya hiç gelmiyor ve olmayan uç yine 404 dönüyor.
+app.MapFallbackToFile("/admin/{*path:nonfile}", "admin/index.html");
+
 // Yük dengeleyici için: veritabanı çalışıyorsa örnek trafik alabilir
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
