@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { jeton, yetkiDusunce } from './api/client';
 import { Kabuk } from './Kabuk';
+import { GenelBakis } from './pages/GenelBakis';
 import { Giris } from './pages/Giris';
+import { Rotalar } from './pages/Rotalar';
+import { Sehirler } from './pages/Sehirler';
+import { Uyelik } from './pages/Uyelik';
 import { Yapim } from './pages/Yapim';
+import { Yerler } from './pages/Yerler';
 
 export default function App() {
   const [girisli, setGirisli] = useState(() => jeton.oku() !== null);
@@ -20,11 +25,11 @@ export default function App() {
     <BrowserRouter basename="/admin">
       <Routes>
         <Route element={<Kabuk cikildi={() => setGirisli(false)} />}>
-          <Route index element={<Yapim ad="Genel bakış" />} />
-          <Route path="sehirler" element={<Yapim ad="Şehirler" />} />
-          <Route path="yerler" element={<Yapim ad="Popüler yerler" />} />
-          <Route path="rotalar" element={<Yapim ad="Rotalar" />} />
-          <Route path="uyelik" element={<Yapim ad="Üyelik" />} />
+          <Route index element={<GenelBakis />} />
+          <Route path="sehirler" element={<Sehirler />} />
+          <Route path="yerler" element={<Yerler />} />
+          <Route path="rotalar" element={<Rotalar />} />
+          <Route path="uyelik" element={<Uyelik />} />
           <Route
             path="moderasyon/fotograflar"
             element={<Yapim ad="Fotoğraf kuyruğu" />}

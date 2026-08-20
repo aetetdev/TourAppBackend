@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using StackExchange.Redis;
+using Yolla.Application.Admin;
 using Yolla.Application.Auth;
 using Yolla.Application.Common;
 using Yolla.Application.Content;
@@ -144,6 +145,10 @@ public static class DependencyInjection
 
         // Kullanıcıların önerdiği yerler; aynı moderasyon kuyruğunun ikinci ayağı.
         services.AddScoped<IPlaceSuggestionService, PlaceSuggestionService>();
+
+        // Yönetim panosunun ölçümleri. Yalnızca toplam döndürüyor, kişisel
+        // veri taşımıyor.
+        services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 
         services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
 

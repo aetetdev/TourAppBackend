@@ -233,3 +233,136 @@ button:disabled {
   color: var(--sonuk);
   padding: 56px 0;
 }
+
+/* ---------- Pano ---------- */
+
+.izgara.ikili {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.izgara.ucul {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.izgara.dortlu {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.sayac-baslik {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--sonuk);
+}
+
+.sayac-deger {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sayac-deger.vurgulu {
+  color: var(--marka);
+}
+
+.sayac-alt {
+  font-size: 12.5px;
+  color: var(--sonuk);
+  margin-top: 4px;
+}
+
+.bolum h2 {
+  margin-bottom: 2px;
+}
+
+.bolum-aciklama {
+  color: var(--sonuk);
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+/* ---------- Süzgeç ---------- */
+
+.suzgec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.suzgec label {
+  margin: 0;
+}
+
+.suzgec select {
+  width: auto;
+  min-width: 200px;
+}
+
+/* ---------- Tablo ---------- */
+
+.tablo-sar {
+  overflow-x: auto;
+}
+
+.tablo {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tablo th,
+.tablo td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--kenar);
+  white-space: nowrap;
+}
+
+.tablo th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--sonuk);
+}
+
+.tablo tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tablo .sagda {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.etiket {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.etiket.eksik {
+  background: var(--marka-soft);
+  color: var(--marka);
+}
+
+/* ---------- Grafik ipucu ---------- */
+
+.ipucu {
+  background: var(--yuzey);
+  border: 1px solid var(--kenar);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgb(23 17 14 / 10%);
+}
+
+.ipucu-baslik {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
