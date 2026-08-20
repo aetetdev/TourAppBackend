@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Yolla — Fotoğraf Moderasyonu</title>
+<title>Yolla — Moderasyon</title>
 <style>
   :root {
     --kagit: #F7F5F2; --yuzey: #FFFFFF; --kenar: #E2DCD5;
@@ -54,13 +54,34 @@
   .mevcut span { font-size: 12px; color: var(--sonuk); }
   .uyari { color: var(--red); font-weight: 600; }
   .bos { text-align: center; color: var(--sonuk); padding: 60px 0; }
+
+  .sekmeler { display: flex; gap: 4px; }
+  .sekme {
+    background: transparent; color: var(--sonuk); font-weight: 600;
+    padding: 8px 14px; border-radius: 8px;
+  }
+  .sekme.etkin { background: var(--kagit); color: var(--murekkep); }
+
+  /* Yer önerisinde fotoğraf yok; kart tek sütun akıyor. */
+  .kart.oneri { grid-template-columns: 1fr; }
+  .yakin { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--kenar); }
+  .yakin li { font-size: 13px; color: var(--sonuk); }
+  .yakin ul { margin: 6px 0 0; padding-left: 18px; }
+  .aciklama {
+    margin: 10px 0 0; padding: 10px 12px; background: var(--kagit);
+    border-radius: 8px; font-size: 14px; white-space: pre-wrap;
+  }
   @media (max-width: 720px) { .kart { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 
 <header hidden id="baslik">
-  <h1>Fotoğraf Moderasyonu</h1>
+  <h1>Moderasyon</h1>
+  <div class="sekmeler">
+    <button class="sekme etkin" data-sekme="fotograf">Fotoğraflar</button>
+    <button class="sekme" data-sekme="oneri">Yer önerileri</button>
+  </div>
   <span class="sayac" id="sayac"></span>
   <button class="ikincil" style="margin-left:auto" id="cikis">Çıkış</button>
 </header>
@@ -206,22 +227,106 @@ function kartCiz(oge) {
   return el;
 }
 
+// Önerilen yeri onaylamadan önce moderatörün oraya gerçekten bakması
+// gerekiyor; harita bağlantısı bunu tek tıka indiriyor.
+function haritaBaglantisi(enlem, boylam) {
+  return `https://www.openstreetmap.org/?mlat=${enlem}&mlon=${boylam}#map=17/${enlem}/${boylam}`;
+}
+
+function oneriKartCiz(oge) {
+  const el = document.createElement('div');
+  el.className = 'kart oneri';
+
+  // Yakında kayıtlı yer varsa öneri büyük ihtimalle tekrar. Karar bu listeye
+  // bakılarak veriliyor, ayrı bir ekrana gitmeden.
+  const yakin = oge.nearby.length === 0
+    ? '<p class="satir">1 km çevresinde kayıtlı yer yok.</p>'
+    : `<ul>${oge.nearby.map((y) =>
+        `<li>${y.name} · ${y.categoryName} · ${y.distanceMeters} m</li>`).join('')}</ul>`;
+
+  el.innerHTML = `
+    <div>
+      <h2>${oge.name}</h2>
+      <p class="satir">${oge.categoryName} · ${oge.cityName}${oge.districtName ? ' / ' + oge.districtName : ''}</p>
+      <p class="satir">
+        <a href="${haritaBaglantisi(oge.latitude, oge.longitude)}" target="_blank" rel="noopener">
+          Haritada aç (${oge.latitude.toFixed(5)}, ${oge.longitude.toFixed(5)})
+        </a>
+      </p>
+      ${oge.address ? `<p class="satir">Adres: ${oge.address}</p>` : ''}
+      ${oge.description ? `<p class="aciklama">${oge.description}</p>` : ''}
+      <p class="satir">Öneren: kullanıcı #${oge.userId} · ${oge.userApprovedCount} onaylı önerisi var</p>
+      <p class="satir">${new Date(oge.createdAt).toLocaleString('tr-TR')}</p>
+      <div class="yakin">
+        <span class="satir">Çevresindeki kayıtlı yerler:</span>
+        ${yakin}
+      </div>
+      <div class="eylem">
+        <button class="onay" data-onay="${oge.id}">Kataloğa al (+25 coin)</button>
+        <button class="red" data-red="${oge.id}">Reddet</button>
+      </div>
+    </div>`;
+
+  el.querySelector('[data-onay]').addEventListener('click', async (olay) => {
+    olay.target.disabled = true;
+    try {
+      await istek(`/moderation/yer-onerileri/${oge.id}/onayla`, { method: 'POST' });
+      el.remove();
+      sayacGuncelle(-1);
+    } catch (hata) {
+      alert(hata.message);
+      olay.target.disabled = false;
+    }
+  });
+
+  el.querySelector('[data-red]').addEventListener('click', async (olay) => {
+    const sebep = prompt('Red sebebi (kullanıcıya gösterilecek):');
+    if (!sebep) return;
+
+    olay.target.disabled = true;
+    try {
+      await istek(`/moderation/yer-onerileri/${oge.id}/reddet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: sebep }),
+      });
+      el.remove();
+      sayacGuncelle(-1);
+    } catch (hata) {
+      alert(hata.message);
+      olay.target.disabled = false;
+    }
+  });
+
+  return el;
+}
+
+// Sekmelerin tek farkı hangi ucu okuyup hangi kartı çizdikleri.
+const SEKMELER = {
+  fotograf: { yol: '/moderation/bekleyenler?take=100', ciz: kartCiz, ad: 'gönderi' },
+  oneri: { yol: '/moderation/yer-onerileri?take=100', ciz: oneriKartCiz, ad: 'öneri' },
+};
+
+let sekme = 'fotograf';
 let kalan = 0;
+
 function sayacGuncelle(fark) {
   kalan += fark;
-  $('sayac').textContent = kalan > 0 ? `${kalan} gönderi bekliyor` : 'kuyruk boş';
-  if (kalan === 0) $('liste').innerHTML = '<p class="bos">Bekleyen gönderi yok.</p>';
+  const ad = SEKMELER[sekme].ad;
+  $('sayac').textContent = kalan > 0 ? `${kalan} ${ad} bekliyor` : 'kuyruk boş';
+  if (kalan === 0) $('liste').innerHTML = `<p class="bos">Bekleyen ${ad} yok.</p>`;
 }
 
 async function baslat() {
   $('giris').hidden = true;
   $('baslik').hidden = false;
 
-  const yanit = await istek('/moderation/bekleyenler?take=100');
-  const ogeler = yanit.data;
-
+  const aktif = SEKMELER[sekme];
   $('liste').innerHTML = '';
   kalan = 0;
+
+  const yanit = await istek(aktif.yol);
+  const ogeler = yanit.data;
 
   if (ogeler.length === 0) {
     sayacGuncelle(0);
@@ -229,10 +334,22 @@ async function baslat() {
   }
 
   const parca = document.createDocumentFragment();
-  ogeler.forEach((oge) => parca.appendChild(kartCiz(oge)));
+  ogeler.forEach((oge) => parca.appendChild(aktif.ciz(oge)));
   $('liste').appendChild(parca);
   sayacGuncelle(ogeler.length);
 }
+
+document.querySelectorAll('.sekme').forEach((dugme) => {
+  dugme.addEventListener('click', () => {
+    if (dugme.dataset.sekme === sekme) return;
+
+    sekme = dugme.dataset.sekme;
+    document.querySelectorAll('.sekme').forEach((d) =>
+      d.classList.toggle('etkin', d.dataset.sekme === sekme));
+
+    baslat().catch((hata) => alert(hata.message));
+  });
+});
 
 $('girisDugme').addEventListener('click', girisYap);
 $('sifre').addEventListener('keydown', (e) => { if (e.key === 'Enter') girisYap(); });

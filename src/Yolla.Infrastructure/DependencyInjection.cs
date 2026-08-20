@@ -142,6 +142,9 @@ public static class DependencyInjection
         services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
         services.AddScoped<IRewardService, RewardService>();
 
+        // Kullanıcıların önerdiği yerler; aynı moderasyon kuyruğunun ikinci ayağı.
+        services.AddScoped<IPlaceSuggestionService, PlaceSuggestionService>();
+
         services.Configure<OsrmOptions>(configuration.GetSection(OsrmOptions.SectionName));
 
         // Rota motoru istemcisi havuzdan yönetilir; her istekte yeni bağlantı açmak

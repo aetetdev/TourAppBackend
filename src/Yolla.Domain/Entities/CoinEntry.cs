@@ -27,6 +27,9 @@ public class CoinEntry : BaseEntity
     /// <summary>Kazanım bir fotoğraf onayından geldiyse hangi gönderi.</summary>
     public int? PhotoSubmissionId { get; set; }
 
+    /// <summary>Kazanım bir yer önerisinin onayından geldiyse hangi öneri.</summary>
+    public int? PlaceSuggestionId { get; set; }
+
     /// <summary>Harcama premium hakkına çevrildiyse hangi hak.</summary>
     public int? PremiumGrantId { get; set; }
 

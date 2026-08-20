@@ -17,6 +17,15 @@ public static class RewardRules
     /// <summary>Onaylanan bir fotoğrafın kazandırdığı coin.</summary>
     public const int CoinsPerApprovedPhoto = 10;
 
+    /// <summary>
+    /// Kataloğa alınan bir yer önerisinin kazandırdığı coin.
+    /// </summary>
+    /// <remarks>
+    /// Fotoğraftan yüksek: fotoğraf var olan bir kaydı tamamlıyor, öneri
+    /// hiç olmayan bir kaydı yaratıyor ve doğrulaması da daha zahmetli.
+    /// </remarks>
+    public const int CoinsPerApprovedSuggestion = 25;
+
     /// <summary>Bir aylık premium kaç coin.</summary>
     public const int CoinsForOneMonth = 100;
 
@@ -48,6 +57,32 @@ public static class RewardRules
     /// Moderasyon kuyruğunu tek kullanıcının doldurmasını engelliyor.
     /// </remarks>
     public const int MaxPendingPerUser = 20;
+
+    /// <summary>
+    /// Bir kullanıcının aynı anda bekleyebilecek en fazla yer önerisi.
+    /// </summary>
+    /// <remarks>
+    /// Fotoğraftan düşük: bir yer önerisini doğrulamak moderatöre çok daha
+    /// pahalı, kuyruk kolay tıkanıyor.
+    /// </remarks>
+    public const int MaxPendingSuggestionsPerUser = 5;
+
+    /// <summary>Önerilen yerin adı için sınırlar.</summary>
+    public const int MinSuggestionNameLength = 3;
+
+    public const int MaxSuggestionNameLength = 250;
+
+    /// <summary>Öneriye yazılabilecek en uzun tanıtım.</summary>
+    public const int MaxSuggestionDescriptionLength = 1000;
+
+    /// <summary>
+    /// Bu yarıçapta aynı adlı bir yer varsa öneri tekrar sayılıyor (metre).
+    /// </summary>
+    /// <remarks>
+    /// Aynı yeri iki kullanıcı işaretlerken elleri birkaç on metre şaşabilir;
+    /// 200 m bunu toplarken farklı yerleri birleştirmeyecek kadar dar.
+    /// </remarks>
+    public const double DuplicateSuggestionRadiusMeters = 200;
 
     /// <summary>İstenen premium süresinin coin karşılığı; tanımsızsa null.</summary>
     public static int? CostFor(PremiumPackage package) => package switch

@@ -46,6 +46,58 @@ public class CoinEntryConfiguration : IEntityTypeConfiguration<CoinEntry>
         builder.HasIndex(x => x.PhotoSubmissionId)
             .IsUnique()
             .HasFilter("photo_submission_id IS NOT NULL");
+
+        // Aynısı yer önerileri için: bir öneri en fazla bir kez ödüllendirilir.
+        builder.HasIndex(x => x.PlaceSuggestionId)
+            .IsUnique()
+            .HasFilter("place_suggestion_id IS NOT NULL");
+    }
+}
+
+public class PlaceSuggestionConfiguration : IEntityTypeConfiguration<PlaceSuggestion>
+{
+    public void Configure(EntityTypeBuilder<PlaceSuggestion> builder)
+    {
+        builder.Property(x => x.Name).HasMaxLength(250).IsRequired();
+        builder.Property(x => x.Description).HasMaxLength(1000);
+        builder.Property(x => x.Address).HasMaxLength(400);
+        builder.Property(x => x.RejectionReason).HasMaxLength(500);
+
+        builder.Property(x => x.Location)
+            .HasColumnType("geography (Point, 4326)")
+            .IsRequired();
+
+        // Tekrar önerisi kontrolü ve moderatöre gösterilen yakın kayıtlar
+        // mesafe sorgusu yapıyor.
+        builder.HasIndex(x => x.Location).HasMethod("gist");
+
+        // Moderasyon kuyruğu "bekleyenler, eskiden yeniye" diye okunuyor.
+        builder.HasIndex(x => new { x.Status, x.CreatedAt });
+
+        // "Benim önerilerim" ve kota kontrolü.
+        builder.HasIndex(x => new { x.UserId, x.Status });
+
+        builder.HasOne(x => x.Category)
+            .WithMany()
+            .HasForeignKey(x => x.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.City)
+            .WithMany()
+            .HasForeignKey(x => x.CityId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.District)
+            .WithMany()
+            .HasForeignKey(x => x.DistrictId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Öneri kataloğa girdikten sonra yer silinirse öneri kaydı kalsın;
+        // denetim izi olarak duruyor.
+        builder.HasOne(x => x.Place)
+            .WithMany()
+            .HasForeignKey(x => x.PlaceId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 
