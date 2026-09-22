@@ -2,6 +2,9 @@
 
 Swipe kartlarıyla turistik yer keşfi ve en kısa gezi rotası çıkaran gezi rehberi uygulamasının sunucu tarafı.
 
+Mobil istemci ayrı bir depoda: **[yolla-mobile](https://github.com/aetetdev/yolla-mobile)** (Flutter).
+Sunucu sözleşmesi [`docs/api-rehberi.md`](docs/api-rehberi.md) içinde.
+
 İki çalışma modu var:
 
 | Mod | Ne yapar |
@@ -177,3 +180,9 @@ PostGIS örneği başlatır, bu yüzden Docker'ın çalışıyor olması gerekir
 - **Fotoğraflar:** Wikimedia Commons, çoğunlukla CC BY-SA — **fotoğrafçı adı ve lisans
   gösterilmeden kullanılamaz**. Bu yüzden `places` tablosunda `photo_author`,
   `photo_license` ve `photo_source` kolonları var.
+
+---
+
+## Lisans
+
+MIT — bkz. [LICENSE](LICENSE).
